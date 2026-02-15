@@ -1,9 +1,23 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { getClientData } from '../data/transactions';
+import UploadModal from '../components/UploadModal';
+import ToastContainer from '../components/Toast';
+import { getDb } from '../lib/db/client';
+import { getUserTransactions } from '../lib/services/transactions';
+import { computeDashboardData } from '../lib/services/insights';
 
-const data = getClientData();
+const user = Astro.locals.user!;
+const env = Astro.locals.runtime.env;
+const db = getDb(env.DB);
+
+// Fetch and decrypt user's transactions
+const { transactions, total } = await getUserTransactions(db, env.ENCRYPTION_KEY, user.id, {
+  limit: 10000,
+});
+
+const data = computeDashboardData(transactions);
 const jsonData = JSON.stringify(data);
+const hasData = transactions.length > 0;
 ---
 
 <Layout title="Ledgr — Financial Dashboard">
@@ -12,71 +26,181 @@ const jsonData = JSON.stringify(data);
     <header class="header">
       <div class="header-left">
         <h1>Ledgr</h1>
-        <p class="subtitle">{data.stats.dateRange.from} — {data.stats.dateRange.to} · {data.stats.totalTransactions.toLocaleString()} transactions</p>
+        {hasData ? (
+          <p class="subtitle">{data.stats.dateRange.from} — {data.stats.dateRange.to} · {data.stats.totalTransactions.toLocaleString()} transactions</p>
+        ) : (
+          <p class="subtitle">Upload a Revolut CSV to get started</p>
+        )}
       </div>
       <div class="header-right">
-        <button class="btn btn-upload" id="upload-btn" aria-label="Upload CSV">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 10V2m0 0L5 5m3-3 3 3M2 10v2a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
-          Upload CSV
-        </button>
+        <UploadModal client:load />
         <span class="badge badge-emerald">● Revolut</span>
         <span class="badge badge-sky">GBP</span>
+        <div class="user-menu">
+          <span class="user-name">{user.displayName}</span>
+          <a href="/api/auth/logout" class="btn btn-ghost btn-sm">Sign Out</a>
+        </div>
       </div>
     </header>
 
-    <!-- Tabs -->
-    <nav class="tabs" role="tablist">
-      <button class="tab active" data-target="tab-overview" role="tab">Overview</button>
-      <button class="tab" data-target="tab-transactions" role="tab">Transactions</button>
-      <button class="tab" data-target="tab-categories" role="tab">Categories</button>
-      <button class="tab" data-target="tab-merchants" role="tab">Merchants</button>
-      <button class="tab" data-target="tab-insights" role="tab">Insights</button>
-    </nav>
+    {hasData ? (
+      <>
+        <!-- Tabs -->
+        <nav class="tabs" role="tablist">
+          <button class="tab active" data-target="tab-overview" role="tab">Overview</button>
+          <button class="tab" data-target="tab-transactions" role="tab">Transactions</button>
+          <button class="tab" data-target="tab-categories" role="tab">Categories</button>
+          <button class="tab" data-target="tab-merchants" role="tab">Merchants</button>
+          <button class="tab" data-target="tab-insights" role="tab">Insights</button>
+        </nav>
 
-    <!-- Tab Panels -->
-    <div id="tab-overview" class="tab-panel active" role="tabpanel"></div>
-    <div id="tab-transactions" class="tab-panel" role="tabpanel"></div>
-    <div id="tab-categories" class="tab-panel" role="tabpanel"></div>
-    <div id="tab-merchants" class="tab-panel" role="tabpanel"></div>
-    <div id="tab-insights" class="tab-panel" role="tabpanel"></div>
+        <!-- Tab Panels -->
+        <div id="tab-overview" class="tab-panel active" role="tabpanel"></div>
+        <div id="tab-transactions" class="tab-panel" role="tabpanel"></div>
+        <div id="tab-categories" class="tab-panel" role="tabpanel"></div>
+        <div id="tab-merchants" class="tab-panel" role="tabpanel"></div>
+        <div id="tab-insights" class="tab-panel" role="tabpanel"></div>
+      </>
+    ) : (
+      <div class="empty-state">
+        <div class="empty-state-icon">📊</div>
+        <h2>Welcome to Ledgr</h2>
+        <p>Upload your Revolut CSV statement to see your financial dashboard with insights, spending breakdowns, and more.</p>
+        <div class="empty-state-features">
+          <div class="feature-item">
+            <span class="feature-icon">🔒</span>
+            <span>End-to-end encrypted</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">📈</span>
+            <span>Smart insights</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-icon">🏷️</span>
+            <span>Auto-categorized</span>
+          </div>
+        </div>
+      </div>
+    )}
 
     <!-- Footer -->
     <footer class="footer">
-      <p>Dashboard generated from Revolut account statement · Data processed at build time · Not financial advice</p>
+      <div class="footer-content">
+        <p>Data encrypted at rest · Only you can access your financial data</p>
+        <div class="footer-actions">
+          {hasData && (
+            <>
+              <a href="/api/export?format=csv" class="btn btn-ghost btn-sm">Export CSV</a>
+              <a href="/api/export?format=json" class="btn btn-ghost btn-sm">Export JSON</a>
+            </>
+          )}
+        </div>
+      </div>
     </footer>
   </div>
 
-  <!-- Upload Modal -->
-  <div class="modal-overlay" id="upload-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>Upload Statement</h3>
-        <button class="modal-close" id="upload-close">&times;</button>
-      </div>
-      <div class="modal-body" id="upload-body">
-        <!-- Drop zone (initial state) -->
-        <div id="upload-dropzone" class="dropzone">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
-            <path d="M24 32V8m0 0l-8 8m8-8 8 8"/>
-            <path d="M8 28v8a4 4 0 004 4h24a4 4 0 004-4v-8"/>
-          </svg>
-          <p class="dropzone-text">Drop your Revolut CSV here</p>
-          <p class="dropzone-sub">or <label class="dropzone-browse">browse<input type="file" accept=".csv" id="upload-file" hidden /></label></p>
-        </div>
-        <!-- Progress (shown after upload starts) -->
-        <div id="upload-progress" class="upload-progress" style="display:none">
-          <div class="progress-steps" id="progress-steps"></div>
-          <div class="progress-status" id="progress-status"></div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <ToastContainer client:load />
 
-  <!-- Data -->
-  <script type="application/json" id="app-data" set:html={jsonData}></script>
+  {hasData && (
+    <>
+      <!-- Data -->
+      <script type="application/json" id="app-data" set:html={jsonData}></script>
 
-  <!-- App (bundled by Vite) -->
-  <script>
-    import '../scripts/app.ts';
-  </script>
+      <!-- App (bundled by Vite) -->
+      <script>
+        import '../scripts/app.ts';
+      </script>
+    </>
+  )}
 </Layout>
+
+<style>
+  .user-menu {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .user-name {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .btn-ghost:hover {
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+  }
+
+  .btn-sm {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.78rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    max-width: 500px;
+    margin: 2rem auto;
+  }
+
+  .empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state h2 {
+    font-family: var(--font-serif);
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+
+  .empty-state p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 2rem;
+  }
+
+  .empty-state-features {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .feature-icon {
+    font-size: 1.2rem;
+  }
+
+  .footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .footer-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+</style>
