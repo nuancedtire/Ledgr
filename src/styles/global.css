@@ -725,3 +725,74 @@ button { font-family: inherit; cursor: pointer; }
 .insight-card .insight-desc { font-size: 0.8rem; line-height: 1.55; color: var(--text-secondary); }
 .insights-grid .insight-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 1.25rem; transition: border-color 0.2s; }
 .insights-grid .insight-card:hover { border-color: var(--border); }
+
+/* ================================================================
+   REACT ISLAND STYLES
+   ================================================================ */
+
+/* ── Upload Island ── */
+.upload-island { max-width: 520px; }
+.upload-island .dropzone { border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 3rem 2rem; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+.upload-island .dropzone:hover, .upload-island .dropzone.dragover { border-color: var(--accent-emerald); background: rgba(52,211,153,0.04); }
+.upload-island .dropzone-text { font-size: 0.95rem; color: var(--text-secondary); margin-top: 1rem; }
+.upload-island .dropzone-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; }
+
+.overwrite-toggle { display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer; }
+.overwrite-toggle input[type="checkbox"] { accent-color: var(--accent-emerald); }
+
+.upload-status { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 2rem; text-align: center; }
+.upload-status.success .status-title { color: var(--accent-emerald); font-weight: 600; }
+.upload-status.error .status-title { color: var(--accent-rose); font-weight: 600; }
+.upload-status .status-detail { color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; }
+
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent-emerald); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.btn-primary { background: rgba(52,211,153,0.15); border: 1px solid rgba(52,211,153,0.3); color: var(--accent-emerald); padding: 0.5rem 1.25rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.btn-primary:hover { background: rgba(52,211,153,0.25); border-color: rgba(52,211,153,0.5); }
+.btn-secondary { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); padding: 0.5rem 1.25rem; border-radius: var(--radius-sm); font-size: 0.85rem; cursor: pointer; transition: all 0.2s; }
+.btn-secondary:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.btn-danger { background: rgba(251,113,133,0.1); border: 1px solid rgba(251,113,133,0.25); color: var(--accent-rose); padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.btn-danger:hover { background: rgba(251,113,133,0.2); border-color: rgba(251,113,133,0.4); }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-sm { padding: 0.35rem 0.75rem; font-size: 0.78rem; }
+
+/* ── Data Manager ── */
+.data-manager { margin-top: 0.5rem; }
+
+.dm-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+.dm-tab { padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 500; border: 1px solid var(--border-subtle); background: transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+.dm-tab:hover { border-color: var(--border); color: var(--text-primary); }
+.dm-tab.active { background: var(--bg-elevated); border-color: var(--accent-emerald); color: var(--accent-emerald); }
+
+.dm-filters { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; }
+.dm-search { flex: 1; min-width: 200px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.55rem 1rem; color: var(--text-primary); font-family: var(--font-sans); font-size: 0.85rem; outline: none; transition: border-color 0.2s; }
+.dm-search:focus { border-color: var(--accent-emerald); }
+.dm-search::placeholder { color: var(--text-muted); }
+.dm-select { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 0.55rem 0.75rem; color: var(--text-primary); font-size: 0.82rem; cursor: pointer; min-width: 140px; }
+
+.dm-count { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+
+.dm-table-wrap { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.dm-table { width: 100%; border-collapse: collapse; }
+.dm-table th { text-align: left; padding: 0.6rem 0.75rem; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); background: var(--bg-secondary); }
+.dm-table td { padding: 0.55rem 0.75rem; font-size: 0.82rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
+.dm-table tbody tr { transition: background 0.15s; }
+.dm-table tbody tr:hover { background: var(--bg-card-hover); }
+.dm-table tbody tr.selected { background: rgba(52,211,153,0.06); }
+.dm-table .text-right { text-align: right; }
+.dm-table .positive { color: var(--accent-emerald); }
+.dm-table .negative { color: var(--accent-rose); }
+.dm-table .desc-cell { max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dm-table .cat-badge { font-size: 0.72rem; padding: 0.15rem 0.5rem; background: rgba(255,255,255,0.04); border-radius: 4px; white-space: nowrap; }
+.dm-table input[type="checkbox"] { accent-color: var(--accent-emerald); }
+
+.dm-pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.25rem; font-size: 0.82rem; color: var(--text-secondary); }
+
+.dm-empty { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.9rem; }
+
+.dm-upload-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.dm-upload-card { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); }
+.dm-upload-info { display: flex; flex-direction: column; gap: 0.25rem; }
+.dm-upload-info strong { font-size: 0.9rem; color: var(--text-primary); }
+.dm-upload-meta { font-size: 0.78rem; color: var(--text-muted); }

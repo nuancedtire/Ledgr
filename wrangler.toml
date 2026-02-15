@@ -1,0 +1,28 @@
+name = "ledgr"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "ledgr-db"
+database_id = "YOUR_D1_DATABASE_ID"
+
+# KV Namespace for sessions
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[vars]
+ENTRA_TENANT_ID = ""
+ENTRA_CLIENT_ID = ""
+APP_URL = "http://localhost:4321"
+ENCRYPTION_KEY_SECRET = ""
+
+# Set secrets via: wrangler secret put <NAME>
+# Required secrets:
+#   ENTRA_CLIENT_SECRET
+#   ENCRYPTION_KEY_SECRET (if not in vars)
