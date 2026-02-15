@@ -4,11 +4,11 @@ import { renderTransactions } from './tabs/transactions';
 import { renderCategories } from './tabs/categories';
 import { renderMerchants } from './tabs/merchants';
 import { renderInsights } from './tabs/insights';
-import { initUpload } from './upload';
 
-const DATA: ClientData = JSON.parse(
-  document.getElementById('app-data')!.textContent!,
-);
+const dataEl = document.getElementById('app-data');
+const DATA: ClientData | null = dataEl
+  ? JSON.parse(dataEl.textContent!)
+  : null;
 
 const TAB_RENDERERS: Record<string, (data: ClientData) => void> = {
   'tab-overview': renderOverview,
@@ -19,6 +19,9 @@ const TAB_RENDERERS: Record<string, (data: ClientData) => void> = {
 };
 
 function initTab(target: string): void {
+  if (!DATA) return; // No data loaded yet
+  // Skip React-managed tabs
+  if (target === 'tab-upload' || target === 'tab-manage') return;
   TAB_RENDERERS[target]?.(DATA);
 }
 
@@ -35,6 +38,5 @@ document.querySelectorAll<HTMLElement>('.tab').forEach(tab => {
 });
 
 // Init
-initUpload();
 const activeTab = document.querySelector<HTMLElement>('.tab.active');
 initTab(activeTab?.dataset.target ?? 'tab-overview');

@@ -1,5 +1,5 @@
 export interface ClientTransaction {
-  id: number;
+  id: string | number;
   date: string;
   time: string;
   desc: string;

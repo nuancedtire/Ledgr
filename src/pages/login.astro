@@ -1,0 +1,110 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// If already logged in, redirect to dashboard
+if (Astro.locals.session) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Ledgr — Sign In">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>Ledgr</h1>
+        <p class="login-subtitle">Personal Financial Dashboard</p>
+      </div>
+      <div class="login-body">
+        <p class="login-desc">Sign in with your Microsoft account to access your financial dashboard.</p>
+        <a href="/api/auth/login" class="btn btn-login">
+          <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+          </svg>
+          Sign in with Microsoft
+        </a>
+      </div>
+      <div class="login-footer">
+        <p>Your data is encrypted at rest with AES-256-GCM</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .login-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  .login-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 3rem;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .login-header h1 {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    color: var(--accent-emerald);
+    margin-bottom: 0.25rem;
+  }
+
+  .login-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .login-body {
+    margin-top: 2rem;
+  }
+
+  .login-desc {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+  }
+
+  .btn-login {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .btn-login:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--accent-emerald);
+    color: var(--accent-emerald);
+  }
+
+  .login-footer {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .login-footer p {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+</style>
