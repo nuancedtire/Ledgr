@@ -1,0 +1,7 @@
+MICROSOFT_CLIENT_ID=your-microsoft-client-id
+MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
+MICROSOFT_TENANT_ID=common
+ENCRYPTION_SECRET=your-random-32-char-encryption-secret
+KILO_API_KEY=your-kilo-api-key
+BETTER_AUTH_SECRET=your-random-auth-secret
+TRUSTED_ORIGINS=http://localhost:4321
