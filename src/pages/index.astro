@@ -1,0 +1,465 @@
+---
+import Layout from '../layouts/Layout.astro';
+import {
+  getSummaryStats,
+  getMonthlyBreakdown,
+  getCategoryBreakdown,
+  getTopMerchants,
+  getBalanceHistory,
+  getSavingsHistory,
+  getWeekdaySpending,
+  getAIInsights,
+  getTransactions,
+} from '../data/transactions';
+
+const stats = getSummaryStats();
+const monthly = getMonthlyBreakdown();
+const categories = getCategoryBreakdown();
+const merchants = getTopMerchants(12);
+const balanceHistory = getBalanceHistory();
+const savingsHistory = getSavingsHistory();
+const weekday = getWeekdaySpending();
+const insights = getAIInsights();
+const allTxns = getTransactions().filter(t => t.state !== 'REVERTED' && t.product === 'Current');
+const recentTxns = allTxns.slice(-30).reverse();
+
+// Exclude 'Other' and 'Transfers Out' from display categories for cleaner visuals
+const displayCategories = categories.filter(c => c.category !== 'Transfers Out' && c.category !== 'Currency Exchange' && c.category !== 'Cash' && c.category !== 'Fees');
+const maxCatTotal = Math.max(...displayCategories.map(c => c.total));
+const maxWeekdayAvg = Math.max(...weekday.map(w => w.avgSpend));
+
+const iconMap: Record<string, string> = {
+  warning: '⚠',
+  success: '✓',
+  tip: '💡',
+  info: 'ℹ',
+};
+
+function fmtGBP(n: number): string {
+  return '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function fmtGBP2(n: number): string {
+  return '£' + n.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function heatColor(ratio: number): string {
+  if (ratio > 0.85) return 'var(--accent-rose)';
+  if (ratio > 0.6) return 'var(--accent-amber)';
+  if (ratio > 0.35) return 'var(--accent-sky)';
+  return 'var(--accent-emerald)';
+}
+---
+
+<Layout title="Financial Overview — Dashboard">
+  <div class="dashboard">
+    <!-- Header -->
+    <header class="header animate-in">
+      <div class="header-left">
+        <h1>Financial Overview</h1>
+        <p class="subtitle">{stats.dateRange.from} — {stats.dateRange.to} · {stats.totalTransactions.toLocaleString()} transactions</p>
+      </div>
+      <div class="header-right">
+        <span class="badge badge-emerald">● NHS Trust</span>
+        <span class="badge badge-sky">GBP Account</span>
+      </div>
+    </header>
+
+    <!-- KPI Strip -->
+    <div class="kpi-strip animate-in delay-1">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Income</div>
+        <div class="kpi-value kpi-positive">{fmtGBP(stats.totalIncome)}</div>
+        <div class="kpi-subtext">~{fmtGBP(stats.avgMonthlyIncome)}/month avg</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Spending</div>
+        <div class="kpi-value kpi-negative">{fmtGBP(stats.totalSpending)}</div>
+        <div class="kpi-subtext">~{fmtGBP(stats.avgMonthlySpending)}/month avg</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Current Balance</div>
+        <div class="kpi-value kpi-neutral">{fmtGBP2(stats.currentBalance)}</div>
+        <div class="kpi-subtext">As of latest transaction</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Savings Pocket</div>
+        <div class="kpi-value kpi-accent">{fmtGBP2(stats.savingsBalance)}</div>
+        <div class="kpi-subtext">Driving Fund</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Savings Rate</div>
+        <div class="kpi-value" style={`color: ${stats.savingsRate > 15 ? 'var(--accent-emerald)' : 'var(--accent-amber)'}`}>{stats.savingsRate}%</div>
+        <div class="kpi-subtext">of gross income saved</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Fees</div>
+        <div class="kpi-value kpi-negative">{fmtGBP2(stats.totalFees)}</div>
+        <div class="kpi-subtext">Account & card fees</div>
+      </div>
+    </div>
+
+    <!-- Income vs Spending Chart -->
+    <div class="section-header animate-in delay-2">
+      <h2>Monthly Cash Flow</h2>
+      <p>Income versus spending over time</p>
+    </div>
+
+    <div class="card animate-in delay-2" style="margin-bottom: 2rem;">
+      <div class="chart-container chart-container-lg">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Balance + Savings Charts -->
+    <div class="grid-2 animate-in delay-3">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Balance History</span>
+          <span class="card-accent" style="background: var(--accent-emerald)"></span>
+        </div>
+        <div class="chart-container">
+          <canvas id="balanceChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Savings Pocket</span>
+          <span class="card-accent" style="background: var(--accent-sky)"></span>
+        </div>
+        <div class="chart-container">
+          <canvas id="savingsChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Categories + Merchants -->
+    <div class="section-header animate-in delay-4">
+      <h2>Where the Money Goes</h2>
+      <p>Spending breakdown by category and merchant</p>
+    </div>
+
+    <div class="grid-2 animate-in delay-4">
+      <!-- Category Breakdown -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">By Category</span>
+        </div>
+        <div class="chart-container" style="height: 260px;">
+          <canvas id="categoryDonut"></canvas>
+        </div>
+        <div class="category-list" style="margin-top: 1.25rem;">
+          {displayCategories.slice(0, 10).map(cat => (
+            <div class="category-item">
+              <span class="category-name">
+                <span style={`display:inline-block;width:8px;height:8px;border-radius:50%;background:${cat.color};margin-right:0.5rem;`}></span>
+                {cat.category}
+              </span>
+              <div class="category-bar-track">
+                <div
+                  class="category-bar-fill"
+                  style={`width: ${(cat.total / maxCatTotal) * 100}%; background: ${cat.color};`}
+                ></div>
+              </div>
+              <span class="category-amount">{fmtGBP(cat.total)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Top Merchants -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Top Merchants</span>
+        </div>
+        <div class="merchant-list">
+          {merchants.map((m, i) => (
+            <div class="merchant-item">
+              <span class="merchant-rank">{String(i + 1).padStart(2, '0')}</span>
+              <span class="merchant-name">{m.name}</span>
+              <span class="merchant-detail">{fmtGBP(m.total)}</span>
+              <span class="merchant-count">{m.count}×</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekday Spending -->
+    <div class="card animate-in delay-5" style="margin-bottom: 2rem;">
+      <div class="card-header">
+        <span class="card-title">Spending by Day of Week</span>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Average daily spend</span>
+      </div>
+      <div class="weekday-grid">
+        {weekday.map(w => {
+          const ratio = w.avgSpend / maxWeekdayAvg;
+          return (
+            <div class="weekday-cell">
+              <div class="weekday-label">{w.day.slice(0, 3)}</div>
+              <div class="weekday-value" style={`color: ${heatColor(ratio)}`}>{fmtGBP(w.avgSpend)}</div>
+              <div class="weekday-count">{w.count} txns</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    <!-- AI Insights -->
+    <div class="section-header animate-in delay-6">
+      <h2>AI Insights & Recommendations</h2>
+      <p>Personalised analysis of your financial patterns</p>
+    </div>
+
+    <div class="insights-grid animate-in delay-6" style="margin-bottom: 2.5rem;">
+      {insights.map(insight => (
+        <div class="insight-card" data-type={insight.type}>
+          <div class="insight-icon" data-type={insight.type}>
+            {iconMap[insight.type]}
+          </div>
+          <div class="insight-title">{insight.title}</div>
+          <div class="insight-desc">{insight.description}</div>
+          {insight.metric && <span class="insight-metric">{insight.metric}</span>}
+        </div>
+      ))}
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="section-header animate-in delay-7">
+      <h2>Recent Transactions</h2>
+      <p>Last 30 transactions on your current account</p>
+    </div>
+
+    <div class="card animate-in delay-7" style="overflow-x: auto;">
+      <table class="txn-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Type</th>
+            <th style="text-align: right">Amount</th>
+            <th style="text-align: right">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recentTxns.map(t => (
+            <tr>
+              <td style="white-space: nowrap; font-family: var(--font-mono); font-size: 0.75rem;">
+                {t.startedDate.toISOString().slice(0, 10)}
+              </td>
+              <td style="font-weight: 500; color: var(--text-primary);">{t.description}</td>
+              <td style="font-size: 0.75rem;">{t.type}</td>
+              <td class={t.amount >= 0 ? 'txn-amount-positive' : 'txn-amount-negative'} style="text-align: right">
+                {t.amount >= 0 ? '+' : ''}{fmtGBP2(t.amount)}
+              </td>
+              <td style="text-align: right; font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted);">
+                {t.balance !== null ? fmtGBP2(t.balance) : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer animate-in delay-8">
+      <p>Dashboard generated from Revolut account statement · Data processed at build time · Not financial advice</p>
+    </footer>
+  </div>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" is:inline></script>
+  <script define:vars={{ monthly, balanceHistory, savingsHistory, categories: displayCategories }}>
+    document.addEventListener('DOMContentLoaded', () => {
+      const Chart = window.Chart;
+
+      // Common options
+      const gridColor = 'rgba(255,255,255,0.04)';
+      const tickColor = '#555570';
+      const fontFamily = "'DM Sans', sans-serif";
+
+      Chart.defaults.font.family = fontFamily;
+      Chart.defaults.font.size = 11;
+      Chart.defaults.color = tickColor;
+
+      // Monthly Income vs Spending
+      const last18 = monthly.slice(-18);
+      new Chart(document.getElementById('monthlyChart'), {
+        type: 'bar',
+        data: {
+          labels: last18.map(m => {
+            const [y, mo] = m.month.split('-');
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            return months[parseInt(mo) - 1] + ' ' + y.slice(2);
+          }),
+          datasets: [
+            {
+              label: 'Income',
+              data: last18.map(m => m.income),
+              backgroundColor: 'rgba(52, 211, 153, 0.7)',
+              borderRadius: 4,
+              borderSkipped: false,
+            },
+            {
+              label: 'Spending',
+              data: last18.map(m => m.spending),
+              backgroundColor: 'rgba(251, 113, 133, 0.7)',
+              borderRadius: 4,
+              borderSkipped: false,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              align: 'end',
+              labels: { boxWidth: 12, padding: 20, font: { size: 11 } },
+            },
+            tooltip: {
+              backgroundColor: '#1e1e2a',
+              borderColor: '#2a2a3a',
+              borderWidth: 1,
+              titleFont: { weight: '600' },
+              callbacks: {
+                label: ctx => ` ${ctx.dataset.label}: £${ctx.parsed.y.toLocaleString()}`,
+              },
+            },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxRotation: 45 } },
+            y: {
+              grid: { color: gridColor },
+              ticks: { callback: v => '£' + (v / 1000).toFixed(0) + 'k' },
+            },
+          },
+        },
+      });
+
+      // Balance History
+      const balData = balanceHistory.slice(-120);
+      new Chart(document.getElementById('balanceChart'), {
+        type: 'line',
+        data: {
+          labels: balData.map(b => b.date),
+          datasets: [{
+            label: 'Balance',
+            data: balData.map(b => b.balance),
+            borderColor: '#34d399',
+            backgroundColor: 'rgba(52, 211, 153, 0.08)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1e1e2a',
+              borderColor: '#2a2a3a',
+              borderWidth: 1,
+              callbacks: { label: ctx => `£${ctx.parsed.y.toLocaleString()}` },
+            },
+          },
+          scales: {
+            x: {
+              display: true,
+              grid: { display: false },
+              ticks: { maxTicksLimit: 6, maxRotation: 0, callback: function(val, i) {
+                const label = this.getLabelForValue(val);
+                return label ? label.slice(5) : '';
+              }},
+            },
+            y: {
+              grid: { color: gridColor },
+              ticks: { callback: v => '£' + (v / 1000).toFixed(1) + 'k' },
+            },
+          },
+        },
+      });
+
+      // Savings History
+      new Chart(document.getElementById('savingsChart'), {
+        type: 'line',
+        data: {
+          labels: savingsHistory.map(b => b.date),
+          datasets: [{
+            label: 'Savings',
+            data: savingsHistory.map(b => b.balance),
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.08)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 0,
+            borderWidth: 2,
+            stepped: false,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1e1e2a',
+              borderColor: '#2a2a3a',
+              borderWidth: 1,
+              callbacks: { label: ctx => `£${ctx.parsed.y.toLocaleString()}` },
+            },
+          },
+          scales: {
+            x: {
+              display: true,
+              grid: { display: false },
+              ticks: { maxTicksLimit: 6, maxRotation: 0, callback: function(val) {
+                const label = this.getLabelForValue(val);
+                return label ? label.slice(5) : '';
+              }},
+            },
+            y: {
+              grid: { color: gridColor },
+              ticks: { callback: v => '£' + v },
+            },
+          },
+        },
+      });
+
+      // Category Donut
+      const topCats = categories.slice(0, 8);
+      new Chart(document.getElementById('categoryDonut'), {
+        type: 'doughnut',
+        data: {
+          labels: topCats.map(c => c.category),
+          datasets: [{
+            data: topCats.map(c => c.total),
+            backgroundColor: topCats.map(c => c.color),
+            borderWidth: 0,
+            hoverOffset: 6,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#1e1e2a',
+              borderColor: '#2a2a3a',
+              borderWidth: 1,
+              callbacks: {
+                label: ctx => ` ${ctx.label}: £${ctx.parsed.toLocaleString()}`,
+              },
+            },
+          },
+        },
+      });
+    });
+  </script>
+</Layout>
