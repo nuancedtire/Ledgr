@@ -1,0 +1,27 @@
+{
+  "name": "finance-dashboard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.29.1",
+  "dependencies": {
+    "@astrojs/node": "^9.5.3",
+    "astro": "^5.17.2",
+    "chart.js": "^4.5.1",
+    "papaparse": "^5.5.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
+  }
+}
