@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ledgr-workflow",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "observability": {
+    "enabled": true
+  },
+  "workflows": [
+    {
+      "name": "ledgr-csv-ingest",
+      "binding": "CSV_WORKFLOW",
+      "class_name": "CSVIngestWorkflow"
+    }
+  ],
+  "vars": {
+    "GITHUB_REPO": "your-username/ledgr",
+    "GITHUB_BRANCH": "main",
+    "CSV_PATH": "src/data/statement.csv"
+  }
+  // Set GITHUB_TOKEN as a secret:
+  // npx wrangler secret put GITHUB_TOKEN
+}

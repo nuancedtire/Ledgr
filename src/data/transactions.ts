@@ -69,6 +69,32 @@ export interface AIInsight {
   metric?: string;
 }
 
+export interface ClientTransaction {
+  id: number;
+  date: string;
+  time: string;
+  desc: string;
+  amt: number;
+  fee: number;
+  cat: string;
+  type: string;
+  bal: number | null;
+  state: string;
+  product: string;
+}
+
+export interface ClientData {
+  transactions: ClientTransaction[];
+  categories: CategoryData[];
+  merchants: MerchantData[];
+  monthly: MonthlyData[];
+  weekday: WeekdayData[];
+  balanceHistory: BalancePoint[];
+  savingsHistory: BalancePoint[];
+  stats: SummaryStats;
+  insights: AIInsight[];
+}
+
 const CATEGORY_COLORS: Record<string, string> = {
   'Food Delivery': '#ef4444',
   'Transport': '#f97316',
@@ -104,6 +130,7 @@ function categorize(desc: string, type: string, _amount?: number): string {
   if (['stow residential', 'goodlord'].some(x => d.includes(x))) return 'Housing';
   if (['octopus energy'].some(x => d.includes(x))) return 'Utilities';
   if (['netflix', 'spotify', 'apple.com', 'youtube', 'disney', 'vodafone', 'cerebras', 'exe.dev', 'bold software', 'cloudflare', 'homelet', 'openai', 'chatgpt'].some(x => d.includes(x))) return 'Subscriptions';
+  if (['bma association', 'general medical'].some(x => d.includes(x))) return 'Subscriptions';
   if (['to revolut', 'to kochans'].some(x => d.includes(x))) return 'Transfers Out';
   if (d.includes('transfer to revolut') || d.includes('to revolut')) return 'Transfers Out';
   if (type === 'ATM') return 'Cash';
@@ -112,7 +139,6 @@ function categorize(desc: string, type: string, _amount?: number): string {
   if (type === 'Transfer') return 'Transfers Out';
   if (type === 'Rev Payment') return 'Transfers Out';
   if (['juul', 'tobacco'].some(x => d.includes(x))) return 'Other';
-  if (['bma association', 'general medical'].some(x => d.includes(x))) return 'Subscriptions';
   
   return 'Other';
 }
@@ -348,7 +374,7 @@ export function getSummaryStats(): SummaryStats {
       from: new Date(Math.min(...dates)).toISOString().slice(0, 10),
       to: new Date(Math.max(...dates)).toISOString().slice(0, 10),
     },
-    topIncomeSource: 'Barts Health NHS Trust',
+    topIncomeSource: 'Salary',
     biggestExpenseCategory: biggestCat,
   };
 }
@@ -400,7 +426,7 @@ export function getAIInsights(): AIInsight[] {
     insights.push({
       type: 'warning',
       title: 'Savings rate needs improvement',
-      description: `Your effective savings rate is around ${stats.savingsRate}%. Financial advisors recommend saving at least 20% of income. With your NHS salary, targeting £800-1,000/month in savings would build a strong safety net within a year.`,
+      description: `Your effective savings rate is around ${stats.savingsRate}%. Financial advisors recommend saving at least 20% of income. With your salary, targeting £800-1,000/month in savings would build a strong safety net within a year.`,
       metric: `${stats.savingsRate}%`,
     });
   } else {
@@ -430,11 +456,20 @@ export function getAIInsights(): AIInsight[] {
     metric: `£${Math.round(stats.avgMonthlySpending * 3).toLocaleString()} target`,
   });
   
-  // NHS pension
+  // Maximise ISA allowance
   insights.push({
-    type: 'info',
-    title: 'NHS Pension is a strong foundation',
-    description: `Your NHS Pension contributions are building long-term wealth automatically. The NHS 2015 scheme is one of the best defined-benefit pensions available. Supplement it with a Stocks & Shares ISA (£20k/year allowance) for additional tax-free growth.`,
+    type: 'tip',
+    title: 'Maximise your ISA allowance',
+    description: `You have a £20,000/year ISA allowance — use it or lose it each tax year. A Stocks & Shares ISA invested in a global index fund grows tax-free: no capital gains tax, no tax on dividends. Even £300/month could grow to ~£45,000 in 10 years. Platforms like Vanguard or InvestEngine keep fees under 0.2%.`,
+    metric: '£20k/yr tax-free',
+  });
+  
+  // Savings withdrawal pattern
+  insights.push({
+    type: 'warning',
+    title: 'Savings pocket empties to £0 repeatedly',
+    description: `Your savings pocket follows a pattern of building up (£500–£700) then being fully withdrawn back to £0. This erases your progress. Try keeping a minimum balance you never touch — even £200 as a floor — and only withdraw amounts above that. Automating a "do not touch" threshold makes saving stick.`,
+    metric: '£0 floor',
   });
   
   // Spending volatility
@@ -467,4 +502,42 @@ export function getIncomeVsExpenses(): { month: string; income: number; expenses
     income: m.income,
     expenses: m.spending,
   }));
+}
+
+export function getClientData(): ClientData {
+  const allTxns = getTransactions();
+
+  // Build client transactions: filter out REVERTED, sort by date descending
+  const activeTxns = allTxns
+    .filter(t => t.state !== 'REVERTED')
+    .sort((a, b) => b.startedDate.getTime() - a.startedDate.getTime());
+
+  const transactions: ClientTransaction[] = activeTxns.map((t, i) => {
+    const iso = t.startedDate.toISOString();
+    return {
+      id: i,
+      date: iso.slice(0, 10),
+      time: iso.slice(11, 16),
+      desc: t.description,
+      amt: Math.round(t.amount * 100) / 100,
+      fee: Math.round(t.fee * 100) / 100,
+      cat: categorize(t.description, t.type, t.amount),
+      type: t.type,
+      bal: t.balance !== null ? Math.round(t.balance * 100) / 100 : null,
+      state: t.state,
+      product: t.product,
+    };
+  });
+
+  return {
+    transactions,
+    categories: getCategoryBreakdown(),
+    merchants: getTopMerchants(20),
+    monthly: getMonthlyBreakdown(),
+    weekday: getWeekdaySpending(),
+    balanceHistory: getBalanceHistory(),
+    savingsHistory: getSavingsHistory(),
+    stats: getSummaryStats(),
+    insights: getAIInsights(),
+  };
 }
