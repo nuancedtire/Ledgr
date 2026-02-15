@@ -2,7 +2,7 @@
 
 A personal financial dashboard built with **Astro**, **TypeScript**, and **Chart.js**. Upload your Revolut CSV statement and get a beautiful, interactive dark-themed dashboard with AI-generated insights and suggestions to improve savings and generate wealth.
 
-![Overview](https://img.shields.io/badge/Astro-5.x-purple?logo=astro) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript) ![Cloudflare](https://img.shields.io/badge/Cloudflare-Pages%20%2B%20Workflows-orange?logo=cloudflare)
+![Overview](https://img.shields.io/badge/Astro-5.x-purple?logo=astro) ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript) ![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-orange?logo=cloudflare)
 
 ## Features
 
@@ -25,7 +25,7 @@ A personal financial dashboard built with **Astro**, **TypeScript**, and **Chart
   3. Fetch existing data from GitHub
   4. Deduplicate & merge (fingerprints on type + date + description + amount)
   5. Commit merged CSV back to GitHub
-  6. Cloudflare Pages auto-rebuilds from the new commit
+  6. Cloudflare Workers Builds auto-rebuilds from the new commit
 
 ### Design
 
@@ -41,14 +41,28 @@ A personal financial dashboard built with **Astro**, **TypeScript**, and **Chart
 | Static site | [Astro](https://astro.build) — build-time data processing, zero JS overhead for static content |
 | Client app | TypeScript — modular SPA with tab-based navigation, bundled by Vite |
 | Charts | [Chart.js](https://www.chartjs.org) — imported as ES module, dark-themed |
-| Hosting | [Cloudflare Pages](https://pages.cloudflare.com) — auto-deploys from GitHub |
+| Hosting | [Cloudflare Workers](https://developers.cloudflare.com/workers/static-assets/) — static assets + API in one deployment |
 | Data pipeline | [Cloudflare Workflows](https://developers.cloudflare.com/workflows/) — durable multi-step CSV ingestion |
 | Storage | **Git repo itself** — no R2, no database. The CSV lives in the repo. |
+
+## Architecture
+
+A single Cloudflare Worker deployment serves everything:
+
+- **Static assets** (`dist/`) — the built Astro site, served automatically
+- **API routes** (`/upload`, `/status/:id`) — handled by the Worker script
+- **Workflow binding** — the `CSVIngestWorkflow` runs as a durable Cloudflare Workflow
+
+`run_worker_first` is set for `/upload` and `/status/*` only — all other requests serve static assets directly (free, cached at the edge).
 
 ## Project Structure
 
 ```
 ledgr/
+├── wrangler.jsonc                      # Single Worker config: assets + API + Workflow
+├── astro.config.mjs
+├── tsconfig.json
+├── package.json
 ├── src/
 │   ├── data/
 │   │   ├── statement.csv              # Your Revolut CSV data
@@ -65,19 +79,15 @@ ledgr/
 │   │       ├── categories.ts          # Donut + drill-down
 │   │       ├── merchants.ts           # Bar chart + drill-down
 │   │       └── insights.ts            # AI insight cards
+│   ├── worker/
+│   │   └── index.ts                   # Worker fetch handler + CSVIngestWorkflow
 │   ├── layouts/
 │   │   └── Layout.astro               # HTML shell with ambient effects
 │   ├── pages/
 │   │   └── index.astro                # Main page: header, tabs, panels, upload modal
 │   └── styles/
 │       └── global.css                 # Mobile-first design system (~700 lines)
-├── worker/                            # Cloudflare Worker + Workflow
-│   ├── src/index.ts                   # HTTP handler + CSVIngestWorkflow (5 durable steps)
-│   ├── wrangler.jsonc                 # Workflow binding config
-│   └── package.json
-├── astro.config.mjs
-├── tsconfig.json
-└── package.json
+└── dist/                              # Built static site (generated)
 ```
 
 ## AI Insights Generated
@@ -113,41 +123,30 @@ pnpm preview
 
 ## Deployment
 
-### 1. Cloudflare Pages (Dashboard)
+This project deploys as a **single Cloudflare Worker** with static assets.
+
+### 1. Connect to GitHub
 
 1. Push this repo to GitHub
-2. In Cloudflare dashboard → Pages → Create project → Connect to `nuancedtire/Ledgr`
+2. In Cloudflare dashboard → Workers & Pages → Create → Connect to `nuancedtire/Ledgr`
 3. Build settings:
    - **Build command:** `pnpm build`
    - **Build output directory:** `dist`
-   - **Node.js version:** `18` or later
-4. Deploy
 
-### 2. Cloudflare Workflow (CSV Ingestion Worker)
+### 2. Set secrets
 
 ```bash
-cd worker
-npm install
-
-# Update wrangler.jsonc — set GITHUB_REPO to "nuancedtire/Ledgr"
-# Then set your GitHub personal access token (needs repo write access):
+# GitHub personal access token (needs repo write access for CSV upload workflow)
 npx wrangler secret put GITHUB_TOKEN
+```
 
-# Deploy the worker
+### 3. Deploy
+
+```bash
 npx wrangler deploy
 ```
 
-### 3. Connect the Upload Button
-
-Once the Worker is deployed, set the API URL so the upload modal knows where to send CSVs.
-
-Add to your Cloudflare Pages environment variables or inject via a script:
-
-```html
-<script>window.LEDGR_API = 'https://ledgr-workflow.YOUR_SUBDOMAIN.workers.dev';</script>
-```
-
-Or set it in the Astro layout before the app script loads.
+Or let Workers Builds auto-deploy on push.
 
 ## How the Upload Flow Works
 
@@ -155,7 +154,7 @@ Or set it in the Astro layout before the app script loads.
 User drops CSV on dashboard
         │
         ▼
- POST /upload → Cloudflare Worker
+ POST /upload → same Worker
         │
         ▼
   Creates Workflow Instance
@@ -171,10 +170,10 @@ User drops CSV on dashboard
         │    Merge new rows, sort chronologically
         │
         ├─ Step 4: commit-to-github
-        │    PUT merged CSV back via GitHub Contents API
+        │    PUT merged CSV back via GitHub API
         │
         └─ Step 5: trigger-rebuild
-             Cloudflare Pages auto-rebuilds on push
+             Workers Builds auto-rebuilds on push
 
 Dashboard polls GET /status/:id → shows step-by-step progress
 ```
