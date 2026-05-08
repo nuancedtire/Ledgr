@@ -113,34 +113,42 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Other': '#9ca3af',
 };
 
+// Bolt: Memoization cache for categorization
+const _categorizeCache = new Map<string, string>();
+
 function categorize(desc: string, type: string, _amount?: number): string {
+  const cacheKey = `${type}|${desc}`;
+  if (_categorizeCache.has(cacheKey)) return _categorizeCache.get(cacheKey)!;
+
   const d = desc.toLowerCase();
+  let result = 'Other';
   
-  if (['deliveroo', 'just eat', 'uber eats'].some(x => d.includes(x))) return 'Food Delivery';
-  if (['transport for london', 'tfl'].some(x => d.includes(x))) return 'Transport';
-  if (['uber', 'bolt'].some(x => d === x || d.startsWith(x + ' '))) return 'Transport';
-  if (['trainline', 'trainpal'].some(x => d.includes(x))) return 'Transport';
-  if (['whipps cross', 'hospital', 'pharmacy'].some(x => d.includes(x))) return 'Healthcare';
-  if (['the raj', 'wetherspoon', 'gokyuzu', 'sirac kebab', 'nando', 'mcdonald', 'kfc', 'greggs', 'subway', 'pizza', 'burger king', 'pret'].some(x => d.includes(x))) return 'Dining Out';
-  if (['elior'].some(x => d.includes(x))) return 'Dining Out';
-  if (['tesco', 'sainsbury', 'lidl', 'aldi', 'asda', 'morrisons', 'co-op', 'waitrose', 'iceland', '7 star', 'brading food', 'glade food', 'tariq halal'].some(x => d.includes(x))) return 'Groceries';
-  if (['marks & spencer', 'm&s'].some(x => d.includes(x))) return 'Groceries';
-  if (['etihad', 'virgin atlantic', 'air canada', 'air india', 'pegasus', 'trip.com', 'trip ', 'airbnb', 'booking.com', 'resident hotel'].some(x => d.includes(x))) return 'Travel';
-  if (['amazon', 'argos', 'uniqlo', 'deichmann', 'boots', 'superdrug', 'poundland', 'primark', 'beauty base', 'h&m', 'tk maxx', 'john lewis'].some(x => d.includes(x))) return 'Shopping';
-  if (['stow residential', 'goodlord'].some(x => d.includes(x))) return 'Housing';
-  if (['octopus energy'].some(x => d.includes(x))) return 'Utilities';
-  if (['netflix', 'spotify', 'apple.com', 'youtube', 'disney', 'vodafone', 'cerebras', 'exe.dev', 'bold software', 'cloudflare', 'homelet', 'openai', 'chatgpt'].some(x => d.includes(x))) return 'Subscriptions';
-  if (['bma association', 'general medical'].some(x => d.includes(x))) return 'Subscriptions';
-  if (['to revolut', 'to kochans'].some(x => d.includes(x))) return 'Transfers Out';
-  if (d.includes('transfer to revolut') || d.includes('to revolut')) return 'Transfers Out';
-  if (type === 'ATM') return 'Cash';
-  if (type === 'Fee' || type === 'Charge') return 'Fees';
-  if (type === 'Exchange') return 'Currency Exchange';
-  if (type === 'Transfer') return 'Transfers Out';
-  if (type === 'Rev Payment') return 'Transfers Out';
-  if (['juul', 'tobacco'].some(x => d.includes(x))) return 'Other';
+  if (['deliveroo', 'just eat', 'uber eats'].some(x => d.includes(x))) result = 'Food Delivery';
+  else if (['transport for london', 'tfl'].some(x => d.includes(x))) result = 'Transport';
+  else if (['uber', 'bolt'].some(x => d === x || d.startsWith(x + ' '))) result = 'Transport';
+  else if (['trainline', 'trainpal'].some(x => d.includes(x))) result = 'Transport';
+  else if (['whipps cross', 'hospital', 'pharmacy'].some(x => d.includes(x))) result = 'Healthcare';
+  else if (['the raj', 'wetherspoon', 'gokyuzu', 'sirac kebab', 'nando', 'mcdonald', 'kfc', 'greggs', 'subway', 'pizza', 'burger king', 'pret'].some(x => d.includes(x))) result = 'Dining Out';
+  else if (['elior'].some(x => d.includes(x))) result = 'Dining Out';
+  else if (['tesco', 'sainsbury', 'lidl', 'aldi', 'asda', 'morrisons', 'co-op', 'waitrose', 'iceland', '7 star', 'brading food', 'glade food', 'tariq halal'].some(x => d.includes(x))) result = 'Groceries';
+  else if (['marks & spencer', 'm&s'].some(x => d.includes(x))) result = 'Groceries';
+  else if (['etihad', 'virgin atlantic', 'air canada', 'air india', 'pegasus', 'trip.com', 'trip ', 'airbnb', 'booking.com', 'resident hotel'].some(x => d.includes(x))) result = 'Travel';
+  else if (['amazon', 'argos', 'uniqlo', 'deichmann', 'boots', 'superdrug', 'poundland', 'primark', 'beauty base', 'h&m', 'tk maxx', 'john lewis'].some(x => d.includes(x))) result = 'Shopping';
+  else if (['stow residential', 'goodlord'].some(x => d.includes(x))) result = 'Housing';
+  else if (['octopus energy'].some(x => d.includes(x))) result = 'Utilities';
+  else if (['netflix', 'spotify', 'apple.com', 'youtube', 'disney', 'vodafone', 'cerebras', 'exe.dev', 'bold software', 'cloudflare', 'homelet', 'openai', 'chatgpt'].some(x => d.includes(x))) result = 'Subscriptions';
+  else if (['bma association', 'general medical'].some(x => d.includes(x))) result = 'Subscriptions';
+  else if (['to revolut', 'to kochans'].some(x => d.includes(x))) result = 'Transfers Out';
+  else if (d.includes('transfer to revolut') || d.includes('to revolut')) result = 'Transfers Out';
+  else if (type === 'ATM') result = 'Cash';
+  else if (type === 'Fee' || type === 'Charge') result = 'Fees';
+  else if (type === 'Exchange') result = 'Currency Exchange';
+  else if (type === 'Transfer') result = 'Transfers Out';
+  else if (type === 'Rev Payment') result = 'Transfers Out';
+  else if (['juul', 'tobacco'].some(x => d.includes(x))) result = 'Other';
   
-  return 'Other';
+  _categorizeCache.set(cacheKey, result);
+  return result;
 }
 
 function parseCSV(text: string): Transaction[] {

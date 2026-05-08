@@ -192,7 +192,17 @@ export function renderTransactions(data: ClientData): void {
   const bar = el('div', { className: 'tx-filters' });
 
   const searchInput = el('input', { type: 'text', placeholder: 'Search description\u2026', className: 'filter-input', value: state.search }) as HTMLInputElement;
-  searchInput.addEventListener('input', () => { state.search = searchInput.value; state.page = 1; renderTable(); });
+
+  // Bolt: Debounce search to prevent excessive re-renders on every keystroke
+  let searchTimeout: ReturnType<typeof setTimeout>;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      state.search = searchInput.value;
+      state.page = 1;
+      renderTable();
+    }, 150);
+  });
   bar.appendChild(searchInput);
 
   const catSel = el('select', { className: 'filter-select' }) as HTMLSelectElement;
