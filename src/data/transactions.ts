@@ -113,35 +113,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Other': '#9ca3af',
 };
 
-function categorize(desc: string, type: string, _amount?: number): string {
-  const d = desc.toLowerCase();
-  
-  if (['deliveroo', 'just eat', 'uber eats'].some(x => d.includes(x))) return 'Food Delivery';
-  if (['transport for london', 'tfl'].some(x => d.includes(x))) return 'Transport';
-  if (['uber', 'bolt'].some(x => d === x || d.startsWith(x + ' '))) return 'Transport';
-  if (['trainline', 'trainpal'].some(x => d.includes(x))) return 'Transport';
-  if (['whipps cross', 'hospital', 'pharmacy'].some(x => d.includes(x))) return 'Healthcare';
-  if (['the raj', 'wetherspoon', 'gokyuzu', 'sirac kebab', 'nando', 'mcdonald', 'kfc', 'greggs', 'subway', 'pizza', 'burger king', 'pret'].some(x => d.includes(x))) return 'Dining Out';
-  if (['elior'].some(x => d.includes(x))) return 'Dining Out';
-  if (['tesco', 'sainsbury', 'lidl', 'aldi', 'asda', 'morrisons', 'co-op', 'waitrose', 'iceland', '7 star', 'brading food', 'glade food', 'tariq halal'].some(x => d.includes(x))) return 'Groceries';
-  if (['marks & spencer', 'm&s'].some(x => d.includes(x))) return 'Groceries';
-  if (['etihad', 'virgin atlantic', 'air canada', 'air india', 'pegasus', 'trip.com', 'trip ', 'airbnb', 'booking.com', 'resident hotel'].some(x => d.includes(x))) return 'Travel';
-  if (['amazon', 'argos', 'uniqlo', 'deichmann', 'boots', 'superdrug', 'poundland', 'primark', 'beauty base', 'h&m', 'tk maxx', 'john lewis'].some(x => d.includes(x))) return 'Shopping';
-  if (['stow residential', 'goodlord'].some(x => d.includes(x))) return 'Housing';
-  if (['octopus energy'].some(x => d.includes(x))) return 'Utilities';
-  if (['netflix', 'spotify', 'apple.com', 'youtube', 'disney', 'vodafone', 'cerebras', 'exe.dev', 'bold software', 'cloudflare', 'homelet', 'openai', 'chatgpt'].some(x => d.includes(x))) return 'Subscriptions';
-  if (['bma association', 'general medical'].some(x => d.includes(x))) return 'Subscriptions';
-  if (['to revolut', 'to kochans'].some(x => d.includes(x))) return 'Transfers Out';
-  if (d.includes('transfer to revolut') || d.includes('to revolut')) return 'Transfers Out';
-  if (type === 'ATM') return 'Cash';
-  if (type === 'Fee' || type === 'Charge') return 'Fees';
-  if (type === 'Exchange') return 'Currency Exchange';
-  if (type === 'Transfer') return 'Transfers Out';
-  if (type === 'Rev Payment') return 'Transfers Out';
-  if (['juul', 'tobacco'].some(x => d.includes(x))) return 'Other';
-  
-  return 'Other';
-}
 
 function parseCSV(text: string): Transaction[] {
   const lines = text.trim().split('\n');
@@ -193,7 +164,48 @@ export function getTransactions(): Transaction[] {
   return _cache;
 }
 
+const CAT_CACHE = new Map<string, string>();
+export function categorize(desc: string, type: string, _amount?: number): string {
+  const key = `${type}|${desc}`;
+  if (CAT_CACHE.has(key)) return CAT_CACHE.get(key)!;
+
+  const result = ((): string => {
+    const d = desc.toLowerCase();
+
+    if (['deliveroo', 'just eat', 'uber eats'].some(x => d.includes(x))) return 'Food Delivery';
+    if (['transport for london', 'tfl'].some(x => d.includes(x))) return 'Transport';
+    if (['uber', 'bolt'].some(x => d === x || d.startsWith(x + ' '))) return 'Transport';
+    if (['trainline', 'trainpal'].some(x => d.includes(x))) return 'Transport';
+    if (['whipps cross', 'hospital', 'pharmacy'].some(x => d.includes(x))) return 'Healthcare';
+    if (['the raj', 'wetherspoon', 'gokyuzu', 'sirac kebab', 'nando', 'mcdonald', 'kfc', 'greggs', 'subway', 'pizza', 'burger king', 'pret'].some(x => d.includes(x))) return 'Dining Out';
+    if (['elior'].some(x => d.includes(x))) return 'Dining Out';
+    if (['tesco', 'sainsbury', 'lidl', 'aldi', 'asda', 'morrisons', 'co-op', 'waitrose', 'iceland', '7 star', 'brading food', 'glade food', 'tariq halal'].some(x => d.includes(x))) return 'Groceries';
+    if (['marks & spencer', 'm&s'].some(x => d.includes(x))) return 'Groceries';
+    if (['etihad', 'virgin atlantic', 'air canada', 'air india', 'pegasus', 'trip.com', 'trip ', 'airbnb', 'booking.com', 'resident hotel'].some(x => d.includes(x))) return 'Travel';
+    if (['amazon', 'argos', 'uniqlo', 'deichmann', 'boots', 'superdrug', 'poundland', 'primark', 'beauty base', 'h&m', 'tk maxx', 'john lewis'].some(x => d.includes(x))) return 'Shopping';
+    if (['stow residential', 'goodlord'].some(x => d.includes(x))) return 'Housing';
+    if (['octopus energy'].some(x => d.includes(x))) return 'Utilities';
+    if (['netflix', 'spotify', 'apple.com', 'youtube', 'disney', 'vodafone', 'cerebras', 'exe.dev', 'bold software', 'cloudflare', 'homelet', 'openai', 'chatgpt'].some(x => d.includes(x))) return 'Subscriptions';
+    if (['bma association', 'general medical'].some(x => d.includes(x))) return 'Subscriptions';
+    if (['to revolut', 'to kochans'].some(x => d.includes(x))) return 'Transfers Out';
+    if (d.includes('transfer to revolut') || d.includes('to revolut')) return 'Transfers Out';
+    if (type === 'ATM') return 'Cash';
+    if (type === 'Fee' || type === 'Charge') return 'Fees';
+    if (type === 'Exchange') return 'Currency Exchange';
+    if (type === 'Transfer') return 'Transfers Out';
+    if (type === 'Rev Payment') return 'Transfers Out';
+    if (['juul', 'tobacco'].some(x => d.includes(x))) return 'Other';
+
+    return 'Other';
+  })();
+
+  CAT_CACHE.set(key, result);
+  return result;
+}
+
+let _monthlyCache: MonthlyData[] | null = null;
 export function getMonthlyBreakdown(): MonthlyData[] {
+  if (_monthlyCache) return _monthlyCache;
   const txns = getTransactions().filter(t => t.state !== 'REVERTED');
   const months: Record<string, { income: number; spending: number }> = {};
   
@@ -212,7 +224,7 @@ export function getMonthlyBreakdown(): MonthlyData[] {
     }
   }
   
-  return Object.entries(months)
+  _monthlyCache = Object.entries(months)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, data]) => ({
       month,
@@ -220,9 +232,12 @@ export function getMonthlyBreakdown(): MonthlyData[] {
       spending: Math.round(data.spending * 100) / 100,
       net: Math.round((data.income - data.spending) * 100) / 100,
     }));
+  return _monthlyCache;
 }
 
+let _categoryCache: CategoryData[] | null = null;
 export function getCategoryBreakdown(): CategoryData[] {
+  if (_categoryCache) return _categoryCache;
   const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.product === 'Current');
   const cats: Record<string, { total: number; count: number }> = {};
   
@@ -238,7 +253,7 @@ export function getCategoryBreakdown(): CategoryData[] {
     cats[cat].count += 1;
   }
   
-  return Object.entries(cats)
+  _categoryCache = Object.entries(cats)
     .sort(([, a], [, b]) => b.total - a.total)
     .map(([category, data]) => ({
       category,
@@ -246,9 +261,12 @@ export function getCategoryBreakdown(): CategoryData[] {
       count: data.count,
       color: CATEGORY_COLORS[category] || '#9ca3af',
     }));
+  return _categoryCache;
 }
 
+let _merchantsCache: MerchantData[] | null = null;
 export function getTopMerchants(n: number = 15): MerchantData[] {
+  if (_merchantsCache) return _merchantsCache.slice(0, n);
   const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.type === 'Card Payment' && t.amount < 0);
   const merchants: Record<string, { total: number; count: number }> = {};
   
@@ -258,18 +276,20 @@ export function getTopMerchants(n: number = 15): MerchantData[] {
     merchants[t.description].count += 1;
   }
   
-  return Object.entries(merchants)
+  _merchantsCache = Object.entries(merchants)
     .sort(([, a], [, b]) => b.total - a.total)
-    .slice(0, n)
     .map(([name, data]) => ({
       name,
       total: Math.round(data.total * 100) / 100,
       count: data.count,
       avgTransaction: Math.round((data.total / data.count) * 100) / 100,
     }));
+  return _merchantsCache.slice(0, n);
 }
 
+let _balanceCache: BalancePoint[] | null = null;
 export function getBalanceHistory(): BalancePoint[] {
+  if (_balanceCache) return _balanceCache;
   const txns = getTransactions().filter(t => t.product === 'Current' && t.balance !== null && t.state === 'COMPLETED');
   const daily: Record<string, number> = {};
   
@@ -278,12 +298,15 @@ export function getBalanceHistory(): BalancePoint[] {
     daily[d] = t.balance!;
   }
   
-  return Object.entries(daily)
+  _balanceCache = Object.entries(daily)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, balance]) => ({ date, balance }));
+  return _balanceCache;
 }
 
+let _savingsCache: BalancePoint[] | null = null;
 export function getSavingsHistory(): BalancePoint[] {
+  if (_savingsCache) return _savingsCache;
   const txns = getTransactions().filter(t => t.product === 'Savings' && t.balance !== null && t.state === 'COMPLETED');
   const daily: Record<string, number> = {};
   
@@ -292,12 +315,15 @@ export function getSavingsHistory(): BalancePoint[] {
     daily[d] = t.balance!;
   }
   
-  return Object.entries(daily)
+  _savingsCache = Object.entries(daily)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, balance]) => ({ date, balance }));
+  return _savingsCache;
 }
 
+let _weekdayCache: WeekdayData[] | null = null;
 export function getWeekdaySpending(): WeekdayData[] {
+  if (_weekdayCache) return _weekdayCache;
   const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.type === 'Card Payment' && t.amount < 0);
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const data: Record<number, { total: number; count: number; weeks: Set<string> }> = {};
@@ -312,15 +338,18 @@ export function getWeekdaySpending(): WeekdayData[] {
     data[dow].weeks.add(weekKey);
   }
   
-  return days.map((day, i) => ({
+  _weekdayCache = days.map((day, i) => ({
     day,
     totalSpend: Math.round(data[i].total * 100) / 100,
     avgSpend: data[i].weeks.size > 0 ? Math.round((data[i].total / data[i].weeks.size) * 100) / 100 : 0,
     count: data[i].count,
   }));
+  return _weekdayCache;
 }
 
+let _summaryCache: SummaryStats | null = null;
 export function getSummaryStats(): SummaryStats {
+  if (_summaryCache) return _summaryCache;
   const txns = getTransactions().filter(t => t.state !== 'REVERTED');
   const currentTxns = txns.filter(t => t.product === 'Current');
   
@@ -360,7 +389,7 @@ export function getSummaryStats(): SummaryStats {
   const cats = getCategoryBreakdown();
   const biggestCat = cats.length > 0 ? cats[0].category : 'Unknown';
   
-  return {
+  _summaryCache = {
     totalIncome: Math.round(totalIncome * 100) / 100,
     totalSpending: Math.round(totalSpending * 100) / 100,
     totalFees: Math.round(totalFees * 100) / 100,
@@ -377,9 +406,12 @@ export function getSummaryStats(): SummaryStats {
     topIncomeSource: 'Salary',
     biggestExpenseCategory: biggestCat,
   };
+  return _summaryCache;
 }
 
+let _insightsCache: AIInsight[] | null = null;
 export function getAIInsights(): AIInsight[] {
+  if (_insightsCache) return _insightsCache;
   const stats = getSummaryStats();
   const cats = getCategoryBreakdown();
   const monthly = getMonthlyBreakdown();
@@ -493,7 +525,8 @@ export function getAIInsights(): AIInsight[] {
     metric: '£200/mo → £30k',
   });
   
-  return insights;
+  _insightsCache = insights;
+  return _insightsCache;
 }
 
 export function getIncomeVsExpenses(): { month: string; income: number; expenses: number }[] {
@@ -504,7 +537,9 @@ export function getIncomeVsExpenses(): { month: string; income: number; expenses
   }));
 }
 
+let _clientDataCache: ClientData | null = null;
 export function getClientData(): ClientData {
+  if (_clientDataCache) return _clientDataCache;
   const allTxns = getTransactions();
 
   // Build client transactions: filter out REVERTED, sort by date descending
@@ -529,7 +564,7 @@ export function getClientData(): ClientData {
     };
   });
 
-  return {
+  _clientDataCache = {
     transactions,
     categories: getCategoryBreakdown(),
     merchants: getTopMerchants(20),
@@ -540,4 +575,5 @@ export function getClientData(): ClientData {
     stats: getSummaryStats(),
     insights: getAIInsights(),
   };
+  return _clientDataCache;
 }

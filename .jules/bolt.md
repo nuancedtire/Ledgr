@@ -1,0 +1,3 @@
+## 2025-05-15 - [Categorization and Data Processing Memoization]
+**Learning:** The data processing pipeline in `src/data/transactions.ts` has a deeply nested call tree where leaf functions like `categorize` and intermediate functions like `getCategoryBreakdown` are called redundantly multiple times during a single `getClientData` execution. This results in significant build-time overhead as the transaction list is traversed repeatedly.
+**Action:** Use module-level memoization for deterministic data processing functions to eliminate redundant O(N) traversals. Since the source data is static at build-time, these caches are safe and highly effective.
