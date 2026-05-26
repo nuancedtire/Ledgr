@@ -113,34 +113,46 @@ const CATEGORY_COLORS: Record<string, string> = {
   'Other': '#9ca3af',
 };
 
+// --- Memoization Caches ---
+// Note: Since this application processes data primarily at build-time (Astro),
+// module-level caching is highly effective for reducing redundant O(N) traversals
+// across the shared call tree without risk of stale data during a single build.
+
+const _catCache: Record<string, string> = {};
+
 function categorize(desc: string, type: string, _amount?: number): string {
+  const cacheKey = `${type}|${desc}`;
+  if (_catCache[cacheKey]) return _catCache[cacheKey];
+
   const d = desc.toLowerCase();
   
-  if (['deliveroo', 'just eat', 'uber eats'].some(x => d.includes(x))) return 'Food Delivery';
-  if (['transport for london', 'tfl'].some(x => d.includes(x))) return 'Transport';
-  if (['uber', 'bolt'].some(x => d === x || d.startsWith(x + ' '))) return 'Transport';
-  if (['trainline', 'trainpal'].some(x => d.includes(x))) return 'Transport';
-  if (['whipps cross', 'hospital', 'pharmacy'].some(x => d.includes(x))) return 'Healthcare';
-  if (['the raj', 'wetherspoon', 'gokyuzu', 'sirac kebab', 'nando', 'mcdonald', 'kfc', 'greggs', 'subway', 'pizza', 'burger king', 'pret'].some(x => d.includes(x))) return 'Dining Out';
-  if (['elior'].some(x => d.includes(x))) return 'Dining Out';
-  if (['tesco', 'sainsbury', 'lidl', 'aldi', 'asda', 'morrisons', 'co-op', 'waitrose', 'iceland', '7 star', 'brading food', 'glade food', 'tariq halal'].some(x => d.includes(x))) return 'Groceries';
-  if (['marks & spencer', 'm&s'].some(x => d.includes(x))) return 'Groceries';
-  if (['etihad', 'virgin atlantic', 'air canada', 'air india', 'pegasus', 'trip.com', 'trip ', 'airbnb', 'booking.com', 'resident hotel'].some(x => d.includes(x))) return 'Travel';
-  if (['amazon', 'argos', 'uniqlo', 'deichmann', 'boots', 'superdrug', 'poundland', 'primark', 'beauty base', 'h&m', 'tk maxx', 'john lewis'].some(x => d.includes(x))) return 'Shopping';
-  if (['stow residential', 'goodlord'].some(x => d.includes(x))) return 'Housing';
-  if (['octopus energy'].some(x => d.includes(x))) return 'Utilities';
-  if (['netflix', 'spotify', 'apple.com', 'youtube', 'disney', 'vodafone', 'cerebras', 'exe.dev', 'bold software', 'cloudflare', 'homelet', 'openai', 'chatgpt'].some(x => d.includes(x))) return 'Subscriptions';
-  if (['bma association', 'general medical'].some(x => d.includes(x))) return 'Subscriptions';
-  if (['to revolut', 'to kochans'].some(x => d.includes(x))) return 'Transfers Out';
-  if (d.includes('transfer to revolut') || d.includes('to revolut')) return 'Transfers Out';
-  if (type === 'ATM') return 'Cash';
-  if (type === 'Fee' || type === 'Charge') return 'Fees';
-  if (type === 'Exchange') return 'Currency Exchange';
-  if (type === 'Transfer') return 'Transfers Out';
-  if (type === 'Rev Payment') return 'Transfers Out';
-  if (['juul', 'tobacco'].some(x => d.includes(x))) return 'Other';
-  
-  return 'Other';
+  let res = 'Other';
+  if (['deliveroo', 'just eat', 'uber eats'].some(x => d.includes(x))) res = 'Food Delivery';
+  else if (['transport for london', 'tfl'].some(x => d.includes(x))) res = 'Transport';
+  else if (['uber', 'bolt'].some(x => d === x || d.startsWith(x + ' '))) res = 'Transport';
+  else if (['trainline', 'trainpal'].some(x => d.includes(x))) res = 'Transport';
+  else if (['whipps cross', 'hospital', 'pharmacy'].some(x => d.includes(x))) res = 'Healthcare';
+  else if (['the raj', 'wetherspoon', 'gokyuzu', 'sirac kebab', 'nando', 'mcdonald', 'kfc', 'greggs', 'subway', 'pizza', 'burger king', 'pret'].some(x => d.includes(x))) res = 'Dining Out';
+  else if (['elior'].some(x => d.includes(x))) res = 'Dining Out';
+  else if (['tesco', 'sainsbury', 'lidl', 'aldi', 'asda', 'morrisons', 'co-op', 'waitrose', 'iceland', '7 star', 'brading food', 'glade food', 'tariq halal'].some(x => d.includes(x))) res = 'Groceries';
+  else if (['marks & spencer', 'm&s'].some(x => d.includes(x))) res = 'Groceries';
+  else if (['etihad', 'virgin atlantic', 'air canada', 'air india', 'pegasus', 'trip.com', 'trip ', 'airbnb', 'booking.com', 'resident hotel'].some(x => d.includes(x))) res = 'Travel';
+  else if (['amazon', 'argos', 'uniqlo', 'deichmann', 'boots', 'superdrug', 'poundland', 'primark', 'beauty base', 'h&m', 'tk maxx', 'john lewis'].some(x => d.includes(x))) res = 'Shopping';
+  else if (['stow residential', 'goodlord'].some(x => d.includes(x))) res = 'Housing';
+  else if (['octopus energy'].some(x => d.includes(x))) res = 'Utilities';
+  else if (['netflix', 'spotify', 'apple.com', 'youtube', 'disney', 'vodafone', 'cerebras', 'exe.dev', 'bold software', 'cloudflare', 'homelet', 'openai', 'chatgpt'].some(x => d.includes(x))) res = 'Subscriptions';
+  else if (['bma association', 'general medical'].some(x => d.includes(x))) res = 'Subscriptions';
+  else if (['to revolut', 'to kochans'].some(x => d.includes(x))) res = 'Transfers Out';
+  else if (d.includes('transfer to revolut') || d.includes('to revolut')) res = 'Transfers Out';
+  else if (type === 'ATM') res = 'Cash';
+  else if (type === 'Fee' || type === 'Charge') res = 'Fees';
+  else if (type === 'Exchange') res = 'Currency Exchange';
+  else if (type === 'Transfer') res = 'Transfers Out';
+  else if (type === 'Rev Payment') res = 'Transfers Out';
+  else if (['juul', 'tobacco'].some(x => d.includes(x))) res = 'Other';
+
+  _catCache[cacheKey] = res;
+  return res;
 }
 
 function parseCSV(text: string): Transaction[] {
@@ -193,7 +205,14 @@ export function getTransactions(): Transaction[] {
   return _cache;
 }
 
+let _monthlyCache: MonthlyData[] | null = null;
+
+/**
+ * Returns a monthly breakdown of income and spending.
+ * Optimized with module-level memoization.
+ */
 export function getMonthlyBreakdown(): MonthlyData[] {
+  if (_monthlyCache) return _monthlyCache;
   const txns = getTransactions().filter(t => t.state !== 'REVERTED');
   const months: Record<string, { income: number; spending: number }> = {};
   
@@ -212,7 +231,7 @@ export function getMonthlyBreakdown(): MonthlyData[] {
     }
   }
   
-  return Object.entries(months)
+  _monthlyCache = Object.entries(months)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, data]) => ({
       month,
@@ -220,9 +239,17 @@ export function getMonthlyBreakdown(): MonthlyData[] {
       spending: Math.round(data.spending * 100) / 100,
       net: Math.round((data.income - data.spending) * 100) / 100,
     }));
+  return _monthlyCache;
 }
 
+let _categoryCache: CategoryData[] | null = null;
+
+/**
+ * Returns a breakdown of spending by category.
+ * Optimized with module-level memoization.
+ */
 export function getCategoryBreakdown(): CategoryData[] {
+  if (_categoryCache) return _categoryCache;
   const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.product === 'Current');
   const cats: Record<string, { total: number; count: number }> = {};
   
@@ -238,7 +265,7 @@ export function getCategoryBreakdown(): CategoryData[] {
     cats[cat].count += 1;
   }
   
-  return Object.entries(cats)
+  _categoryCache = Object.entries(cats)
     .sort(([, a], [, b]) => b.total - a.total)
     .map(([category, data]) => ({
       category,
@@ -246,9 +273,17 @@ export function getCategoryBreakdown(): CategoryData[] {
       count: data.count,
       color: CATEGORY_COLORS[category] || '#9ca3af',
     }));
+  return _categoryCache;
 }
 
+let _merchantsCache: Record<number, MerchantData[]> = {};
+
+/**
+ * Returns the top N merchants by total spending.
+ * Optimized with module-level memoization keyed by N.
+ */
 export function getTopMerchants(n: number = 15): MerchantData[] {
+  if (_merchantsCache[n]) return _merchantsCache[n];
   const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.type === 'Card Payment' && t.amount < 0);
   const merchants: Record<string, { total: number; count: number }> = {};
   
@@ -258,7 +293,7 @@ export function getTopMerchants(n: number = 15): MerchantData[] {
     merchants[t.description].count += 1;
   }
   
-  return Object.entries(merchants)
+  _merchantsCache[n] = Object.entries(merchants)
     .sort(([, a], [, b]) => b.total - a.total)
     .slice(0, n)
     .map(([name, data]) => ({
@@ -267,9 +302,17 @@ export function getTopMerchants(n: number = 15): MerchantData[] {
       count: data.count,
       avgTransaction: Math.round((data.total / data.count) * 100) / 100,
     }));
+  return _merchantsCache[n];
 }
 
+let _balanceCache: BalancePoint[] | null = null;
+
+/**
+ * Returns the daily balance history for the current account.
+ * Optimized with module-level memoization.
+ */
 export function getBalanceHistory(): BalancePoint[] {
+  if (_balanceCache) return _balanceCache;
   const txns = getTransactions().filter(t => t.product === 'Current' && t.balance !== null && t.state === 'COMPLETED');
   const daily: Record<string, number> = {};
   
@@ -278,12 +321,20 @@ export function getBalanceHistory(): BalancePoint[] {
     daily[d] = t.balance!;
   }
   
-  return Object.entries(daily)
+  _balanceCache = Object.entries(daily)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, balance]) => ({ date, balance }));
+  return _balanceCache;
 }
 
+let _savingsCache: BalancePoint[] | null = null;
+
+/**
+ * Returns the daily balance history for the savings account.
+ * Optimized with module-level memoization.
+ */
 export function getSavingsHistory(): BalancePoint[] {
+  if (_savingsCache) return _savingsCache;
   const txns = getTransactions().filter(t => t.product === 'Savings' && t.balance !== null && t.state === 'COMPLETED');
   const daily: Record<string, number> = {};
   
@@ -292,12 +343,20 @@ export function getSavingsHistory(): BalancePoint[] {
     daily[d] = t.balance!;
   }
   
-  return Object.entries(daily)
+  _savingsCache = Object.entries(daily)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, balance]) => ({ date, balance }));
+  return _savingsCache;
 }
 
+let _weekdayCache: WeekdayData[] | null = null;
+
+/**
+ * Returns an average spending breakdown by day of the week.
+ * Optimized with module-level memoization.
+ */
 export function getWeekdaySpending(): WeekdayData[] {
+  if (_weekdayCache) return _weekdayCache;
   const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.type === 'Card Payment' && t.amount < 0);
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const data: Record<number, { total: number; count: number; weeks: Set<string> }> = {};
@@ -312,15 +371,23 @@ export function getWeekdaySpending(): WeekdayData[] {
     data[dow].weeks.add(weekKey);
   }
   
-  return days.map((day, i) => ({
+  _weekdayCache = days.map((day, i) => ({
     day,
     totalSpend: Math.round(data[i].total * 100) / 100,
     avgSpend: data[i].weeks.size > 0 ? Math.round((data[i].total / data[i].weeks.size) * 100) / 100 : 0,
     count: data[i].count,
   }));
+  return _weekdayCache;
 }
 
+let _statsCache: SummaryStats | null = null;
+
+/**
+ * Returns high-level summary statistics for the entire dataset.
+ * Optimized with module-level memoization.
+ */
 export function getSummaryStats(): SummaryStats {
+  if (_statsCache) return _statsCache;
   const txns = getTransactions().filter(t => t.state !== 'REVERTED');
   const currentTxns = txns.filter(t => t.product === 'Current');
   
@@ -360,7 +427,7 @@ export function getSummaryStats(): SummaryStats {
   const cats = getCategoryBreakdown();
   const biggestCat = cats.length > 0 ? cats[0].category : 'Unknown';
   
-  return {
+  _statsCache = {
     totalIncome: Math.round(totalIncome * 100) / 100,
     totalSpending: Math.round(totalSpending * 100) / 100,
     totalFees: Math.round(totalFees * 100) / 100,
@@ -377,9 +444,17 @@ export function getSummaryStats(): SummaryStats {
     topIncomeSource: 'Salary',
     biggestExpenseCategory: biggestCat,
   };
+  return _statsCache;
 }
 
+let _insightsCache: AIInsight[] | null = null;
+
+/**
+ * Returns AI-generated financial insights.
+ * Optimized with module-level memoization.
+ */
 export function getAIInsights(): AIInsight[] {
+  if (_insightsCache) return _insightsCache;
   const stats = getSummaryStats();
   const cats = getCategoryBreakdown();
   const monthly = getMonthlyBreakdown();
@@ -493,7 +568,8 @@ export function getAIInsights(): AIInsight[] {
     metric: '£200/mo → £30k',
   });
   
-  return insights;
+  _insightsCache = insights;
+  return _insightsCache;
 }
 
 export function getIncomeVsExpenses(): { month: string; income: number; expenses: number }[] {
@@ -504,7 +580,14 @@ export function getIncomeVsExpenses(): { month: string; income: number; expenses
   }));
 }
 
+let _clientDataCache: ClientData | null = null;
+
+/**
+ * Aggregates all data required for the client application.
+ * Final aggregation layer optimized with module-level memoization.
+ */
 export function getClientData(): ClientData {
+  if (_clientDataCache) return _clientDataCache;
   const allTxns = getTransactions();
 
   // Build client transactions: filter out REVERTED, sort by date descending
@@ -529,7 +612,7 @@ export function getClientData(): ClientData {
     };
   });
 
-  return {
+  _clientDataCache = {
     transactions,
     categories: getCategoryBreakdown(),
     merchants: getTopMerchants(20),
@@ -540,4 +623,5 @@ export function getClientData(): ClientData {
     stats: getSummaryStats(),
     insights: getAIInsights(),
   };
+  return _clientDataCache;
 }
