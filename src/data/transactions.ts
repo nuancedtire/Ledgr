@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import Papa from 'papaparse';
 
 export interface Transaction {
   type: string;
@@ -12,6 +13,9 @@ export interface Transaction {
   currency: string;
   state: string;
   balance: number | null;
+  category: string;
+  month: string;
+  dateStr: string;
 }
 
 export interface MonthlyData {
@@ -155,44 +159,52 @@ function categorize(desc: string, type: string, _amount?: number): string {
   return res;
 }
 
+interface CSVTransaction {
+  'Type': string;
+  'Product': string;
+  'Started Date': string;
+  'Completed Date': string;
+  'Description': string;
+  'Amount': string;
+  'Fee': string;
+  'Currency': string;
+  'State': string;
+  'Balance': string;
+}
+
 function parseCSV(text: string): Transaction[] {
-  const lines = text.trim().split('\n');
-  const transactions: Transaction[] = [];
-  
-  for (let i = 1; i < lines.length; i++) {
-    const fields: string[] = [];
-    let current = '';
-    let inQuotes = false;
+  const results = Papa.parse<CSVTransaction>(text, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  return results.data.map(fields => {
+    const startedDate = new Date(fields['Started Date']);
+    const type = fields['Type'];
+    const description = fields['Description'];
+    const amount = parseFloat(fields['Amount']) || 0;
     
-    for (const ch of lines[i]) {
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-      } else if (ch === ',' && !inQuotes) {
-        fields.push(current.trim());
-        current = '';
-      } else {
-        current += ch;
-      }
-    }
-    fields.push(current.trim());
-    
-    if (fields.length < 10) continue;
-    
-    transactions.push({
-      type: fields[0],
-      product: fields[1],
-      startedDate: new Date(fields[2]),
-      completedDate: fields[3] ? new Date(fields[3]) : null,
-      description: fields[4],
-      amount: parseFloat(fields[5]) || 0,
-      fee: parseFloat(fields[6]) || 0,
-      currency: fields[7],
-      state: fields[8],
-      balance: fields[9] ? parseFloat(fields[9]) : null,
-    });
-  }
-  
-  return transactions;
+    // Pre-calculate fields to avoid redundant computations in aggregation loops
+    const category = categorize(description, type, amount);
+    const dateStr = startedDate.toISOString().slice(0, 10);
+    const month = dateStr.slice(0, 7);
+
+    return {
+      type,
+      product: fields['Product'],
+      startedDate,
+      completedDate: fields['Completed Date'] ? new Date(fields['Completed Date']) : null,
+      description,
+      amount,
+      fee: parseFloat(fields['Fee']) || 0,
+      currency: fields['Currency'],
+      state: fields['State'],
+      balance: fields['Balance'] ? parseFloat(fields['Balance']) : null,
+      category,
+      month,
+      dateStr,
+    };
+  });
 }
 
 let _cache: Transaction[] | null = null;
@@ -205,6 +217,17 @@ export function getTransactions(): Transaction[] {
   return _cache;
 }
 
+let _activeCache: Transaction[] | null = null;
+
+/**
+ * Returns a cached list of non-REVERTED transactions.
+ */
+export function getActiveTransactions(): Transaction[] {
+  if (_activeCache) return _activeCache;
+  _activeCache = getTransactions().filter(t => t.state !== 'REVERTED');
+  return _activeCache;
+}
+
 let _monthlyCache: MonthlyData[] | null = null;
 
 /**
@@ -213,12 +236,12 @@ let _monthlyCache: MonthlyData[] | null = null;
  */
 export function getMonthlyBreakdown(): MonthlyData[] {
   if (_monthlyCache) return _monthlyCache;
-  const txns = getTransactions().filter(t => t.state !== 'REVERTED');
+  const txns = getActiveTransactions();
   const months: Record<string, { income: number; spending: number }> = {};
   
   for (const t of txns) {
     if (t.product === 'Savings') continue;
-    const m = t.startedDate.toISOString().slice(0, 7);
+    const m = t.month;
     if (!months[m]) months[m] = { income: 0, spending: 0 };
     if (t.amount > 0 && !t.description.toLowerCase().includes('withdrawing savings')) {
       if (t.type === 'Topup' || (t.type === 'Transfer' && t.amount > 0 && !t.description.includes('pocket') && !t.description.includes('savings'))) {
@@ -250,15 +273,15 @@ let _categoryCache: CategoryData[] | null = null;
  */
 export function getCategoryBreakdown(): CategoryData[] {
   if (_categoryCache) return _categoryCache;
-  const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.product === 'Current');
+  const txns = getActiveTransactions();
   const cats: Record<string, { total: number; count: number }> = {};
   
   for (const t of txns) {
-    if (t.amount >= 0) continue;
+    if (t.product !== 'Current' || t.amount >= 0) continue;
     const desc = t.description.toLowerCase();
     if (desc.includes('depositing savings') || desc.includes('to pocket')) continue;
     
-    const cat = categorize(t.description, t.type, t.amount);
+    const cat = t.category;
     if (cat === 'Currency Exchange') continue; // Skip exchange transactions
     if (!cats[cat]) cats[cat] = { total: 0, count: 0 };
     cats[cat].total += Math.abs(t.amount);
@@ -284,10 +307,11 @@ let _merchantsCache: Record<number, MerchantData[]> = {};
  */
 export function getTopMerchants(n: number = 15): MerchantData[] {
   if (_merchantsCache[n]) return _merchantsCache[n];
-  const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.type === 'Card Payment' && t.amount < 0);
+  const txns = getActiveTransactions();
   const merchants: Record<string, { total: number; count: number }> = {};
   
   for (const t of txns) {
+    if (t.type !== 'Card Payment' || t.amount >= 0) continue;
     if (!merchants[t.description]) merchants[t.description] = { total: 0, count: 0 };
     merchants[t.description].total += Math.abs(t.amount);
     merchants[t.description].count += 1;
@@ -313,12 +337,12 @@ let _balanceCache: BalancePoint[] | null = null;
  */
 export function getBalanceHistory(): BalancePoint[] {
   if (_balanceCache) return _balanceCache;
-  const txns = getTransactions().filter(t => t.product === 'Current' && t.balance !== null && t.state === 'COMPLETED');
+  const txns = getTransactions();
   const daily: Record<string, number> = {};
   
   for (const t of txns) {
-    const d = t.startedDate.toISOString().slice(0, 10);
-    daily[d] = t.balance!;
+    if (t.product !== 'Current' || t.balance === null || t.state !== 'COMPLETED') continue;
+    daily[t.dateStr] = t.balance;
   }
   
   _balanceCache = Object.entries(daily)
@@ -335,12 +359,12 @@ let _savingsCache: BalancePoint[] | null = null;
  */
 export function getSavingsHistory(): BalancePoint[] {
   if (_savingsCache) return _savingsCache;
-  const txns = getTransactions().filter(t => t.product === 'Savings' && t.balance !== null && t.state === 'COMPLETED');
+  const txns = getTransactions();
   const daily: Record<string, number> = {};
   
   for (const t of txns) {
-    const d = t.startedDate.toISOString().slice(0, 10);
-    daily[d] = t.balance!;
+    if (t.product !== 'Savings' || t.balance === null || t.state !== 'COMPLETED') continue;
+    daily[t.dateStr] = t.balance;
   }
   
   _savingsCache = Object.entries(daily)
@@ -357,18 +381,18 @@ let _weekdayCache: WeekdayData[] | null = null;
  */
 export function getWeekdaySpending(): WeekdayData[] {
   if (_weekdayCache) return _weekdayCache;
-  const txns = getTransactions().filter(t => t.state !== 'REVERTED' && t.type === 'Card Payment' && t.amount < 0);
+  const txns = getActiveTransactions();
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const data: Record<number, { total: number; count: number; weeks: Set<string> }> = {};
   
   for (let i = 0; i < 7; i++) data[i] = { total: 0, count: 0, weeks: new Set() };
   
   for (const t of txns) {
+    if (t.type !== 'Card Payment' || t.amount >= 0) continue;
     const dow = t.startedDate.getDay();
     data[dow].total += Math.abs(t.amount);
     data[dow].count += 1;
-    const weekKey = t.startedDate.toISOString().slice(0, 10);
-    data[dow].weeks.add(weekKey);
+    data[dow].weeks.add(t.dateStr);
   }
   
   _weekdayCache = days.map((day, i) => ({
@@ -388,7 +412,7 @@ let _statsCache: SummaryStats | null = null;
  */
 export function getSummaryStats(): SummaryStats {
   if (_statsCache) return _statsCache;
-  const txns = getTransactions().filter(t => t.state !== 'REVERTED');
+  const txns = getActiveTransactions();
   const currentTxns = txns.filter(t => t.product === 'Current');
   
   let totalIncome = 0;
@@ -421,8 +445,24 @@ export function getSummaryStats(): SummaryStats {
   const lastCurrent = currentTxns.filter(t => t.balance !== null);
   const currentBalance = lastCurrent.length > 0 ? lastCurrent[lastCurrent.length - 1].balance! : 0;
   
-  const dates = txns.map(t => t.startedDate.getTime());
-  const monthSpan = Math.max(1, (Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24 * 30.44));
+  let minDate = Infinity;
+  let maxDate = -Infinity;
+  let minDateStr = '';
+  let maxDateStr = '';
+
+  for (const t of txns) {
+    const time = t.startedDate.getTime();
+    if (time < minDate) {
+      minDate = time;
+      minDateStr = t.dateStr;
+    }
+    if (time > maxDate) {
+      maxDate = time;
+      maxDateStr = t.dateStr;
+    }
+  }
+
+  const monthSpan = Math.max(1, (maxDate - minDate) / (1000 * 60 * 60 * 24 * 30.44));
   
   const cats = getCategoryBreakdown();
   const biggestCat = cats.length > 0 ? cats[0].category : 'Unknown';
@@ -438,8 +478,8 @@ export function getSummaryStats(): SummaryStats {
     savingsRate: totalIncome > 0 ? Math.round(((totalIncome - totalSpending) / totalIncome) * 10000) / 100 : 0,
     totalTransactions: txns.length,
     dateRange: {
-      from: new Date(Math.min(...dates)).toISOString().slice(0, 10),
-      to: new Date(Math.max(...dates)).toISOString().slice(0, 10),
+      from: minDateStr,
+      to: maxDateStr,
     },
     topIncomeSource: 'Salary',
     biggestExpenseCategory: biggestCat,
@@ -588,23 +628,19 @@ let _clientDataCache: ClientData | null = null;
  */
 export function getClientData(): ClientData {
   if (_clientDataCache) return _clientDataCache;
-  const allTxns = getTransactions();
-
-  // Build client transactions: filter out REVERTED, sort by date descending
-  const activeTxns = allTxns
-    .filter(t => t.state !== 'REVERTED')
+  const activeTxns = getActiveTransactions()
+    .slice()
     .sort((a, b) => b.startedDate.getTime() - a.startedDate.getTime());
 
   const transactions: ClientTransaction[] = activeTxns.map((t, i) => {
-    const iso = t.startedDate.toISOString();
     return {
       id: i,
-      date: iso.slice(0, 10),
-      time: iso.slice(11, 16),
+      date: t.dateStr,
+      time: t.startedDate.toISOString().slice(11, 16),
       desc: t.description,
       amt: Math.round(t.amount * 100) / 100,
       fee: Math.round(t.fee * 100) / 100,
-      cat: categorize(t.description, t.type, t.amount),
+      cat: t.category,
       type: t.type,
       bal: t.balance !== null ? Math.round(t.balance * 100) / 100 : null,
       state: t.state,
