@@ -1,3 +1,7 @@
 ## 2026-05-23 - [Optimization of Astro build-time data processing]
 **Learning:** In Astro projects where data is processed primarily at build-time (e.g., generating JSON for static pages), module-level memoization is extremely effective. The codebase exhibited a redundant call tree where high-level aggregation functions repeatedly called lower-level ones, each performing O(N) traversals of a shared transaction list. Module-level caching reduced `getClientData` execution from ~53ms to ~1ms (a ~98% improvement) without the risk of stale data, as builds are re-triggered on every data change.
 **Action:** Use module-level memoization for build-time aggregation logic to eliminate redundant processing across shared data structures.
+
+## 2026-05-24 - [Optimization of initial CSV parsing and aggregation]
+**Learning:** While module-level memoization fixes redundant calls, the "cold load" (initial build) is still bottlenecked by expensive string operations (`toISOString`), repeated object creation (`new Date`), and redundant lookups (`categorize`) during aggregation. Moving these into the initial `parseCSV` phase and pre-calculating fields like `month`, `dateStr`, and `category` reduced `getClientData` cold load from ~122ms to ~94ms (~23% improvement). Consolidating multiple `filter`/`map` passes into a single-pass loop further reduces overhead.
+**Action:** Pre-calculate frequently accessed fields during initial data ingestion and use single-pass loops for multi-metric aggregation to minimize cold-load latency.
