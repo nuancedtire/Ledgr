@@ -5,3 +5,7 @@
 ## 2026-05-24 - [Pre-calculation and Single-Pass Aggregation]
 **Learning:** Moving expensive operations (like string slicing, date parsing, and category lookup) from the "view" or "aggregation" layer into the initial "ingestion/parsing" phase yields significant gains in cold-start performance. Combining multiple O(N) filters and maps into a single-pass `for...of` loop further reduces overhead and avoids stack limits when using spread operators (e.g., `Math.max(...dates)`) on large datasets.
 **Action:** Pre-calculate frequently used derived fields during initial data parsing and prefer single-pass loops for complex multi-metric aggregations.
+
+## 2026-05-25 - [Replacing `toISOString()` with manual UTC component construction]
+**Learning:** `Date.prototype.toISOString()` is relatively slow because it performs comprehensive formatting of the entire date-time string (including milliseconds and time zone markers) even when only specific parts (like `YYYY-MM`) are needed. Manually constructing UTC strings using `getUTC*` methods is approximately 5x faster and maintains the same UTC normalization, which is critical for financial data consistency.
+**Action:** In high-performance loops (like CSV parsing), use manual UTC component construction instead of `toISOString()` if only specific parts of the date string are required.
