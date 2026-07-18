@@ -1,6 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+/**
+ * Formats a number with commas as thousands separators.
+ * Avoids the expensive load-time/runtime overhead of Intl/toLocaleString during static build.
+ */
+export function formatNumberWithCommas(num: number): string {
+  const parts = num.toString().split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+}
+
 export interface Transaction {
   type: string;
   product: string;
@@ -17,6 +27,7 @@ export interface Transaction {
   month: string;    // YYYY-MM
   dateStr: string;  // YYYY-MM-DD
   time: string;     // HH:mm
+  descriptionLower: string;
 }
 
 export interface MonthlyData {
@@ -218,6 +229,7 @@ function parseCSV(text: string): Transaction[] {
       month: `${y}-${mS}`,
       dateStr: `${y}-${mS}-${dS}`,
       time: `${hS}:${minS}`,
+      descriptionLower: description.toLowerCase(),
     });
   }
   
@@ -261,12 +273,12 @@ export function getMonthlyBreakdown(): MonthlyData[] {
     if (t.product === 'Savings') continue;
     const m = t.month;
     if (!months[m]) months[m] = { income: 0, spending: 0 };
-    if (t.amount > 0 && !t.description.toLowerCase().includes('withdrawing savings')) {
+    if (t.amount > 0 && !t.descriptionLower.includes('withdrawing savings')) {
       if (t.type === 'Topup' || (t.type === 'Transfer' && t.amount > 0 && !t.description.includes('pocket') && !t.description.includes('savings'))) {
         months[m].income += t.amount;
       }
     } else if (t.amount < 0) {
-      if (!t.description.toLowerCase().includes('depositing savings') && !t.description.toLowerCase().includes('to pocket')) {
+      if (!t.descriptionLower.includes('depositing savings') && !t.descriptionLower.includes('to pocket')) {
         months[m].spending += Math.abs(t.amount);
       }
     }
@@ -296,7 +308,7 @@ export function getCategoryBreakdown(): CategoryData[] {
   
   for (const t of txns) {
     if (t.product !== 'Current' || t.amount >= 0) continue;
-    const desc = t.description.toLowerCase();
+    const desc = t.descriptionLower;
     if (desc.includes('depositing savings') || desc.includes('to pocket')) continue;
     
     const cat = t.category;
@@ -454,7 +466,7 @@ export function getSummaryStats(): SummaryStats {
       } else if (t.amount < 0) {
         if (t.type === 'Card Payment') {
           totalSpending += Math.abs(t.amount);
-        } else if (t.type === 'Transfer' && !t.description.toLowerCase().includes('depositing savings') && !t.description.toLowerCase().includes('to pocket')) {
+        } else if (t.type === 'Transfer' && !t.descriptionLower.includes('depositing savings') && !t.descriptionLower.includes('to pocket')) {
           totalSpending += Math.abs(t.amount);
         }
       }
@@ -515,7 +527,7 @@ export function getAIInsights(): AIInsight[] {
     insights.push({
       type: 'warning',
       title: 'Food delivery spending is high',
-      description: `You\'ve spent £${foodDelivery.total.toLocaleString()} on Deliveroo, Just Eat & Uber Eats across ${foodDelivery.count} orders — about £${monthlyDelivery}/month. Cooking just 2 more meals per week could save ~£150/month (£1,800/year).`,
+      description: `You\'ve spent £${formatNumberWithCommas(foodDelivery.total)} on Deliveroo, Just Eat & Uber Eats across ${foodDelivery.count} orders — about £${monthlyDelivery}/month. Cooking just 2 more meals per week could save ~£150/month (£1,800/year).`,
       metric: `£${monthlyDelivery}/mo`,
     });
   }
@@ -526,8 +538,8 @@ export function getAIInsights(): AIInsight[] {
     insights.push({
       type: 'warning',
       title: 'Food away from home dominates spending',
-      description: `Combined food delivery + dining out totals £${Math.round(totalEatingOut).toLocaleString()}, which is ${Math.round(totalEatingOut / stats.totalSpending * 100)}% of your card spending. The grocery bill is only £${groceries?.total.toLocaleString() ?? '0'} — there\'s clear room to shift the balance.`,
-      metric: `£${Math.round(totalEatingOut).toLocaleString()}`,
+      description: `Combined food delivery + dining out totals £${formatNumberWithCommas(Math.round(totalEatingOut))}, which is ${Math.round(totalEatingOut / stats.totalSpending * 100)}% of your card spending. The grocery bill is only £${groceries?.total ? formatNumberWithCommas(groceries.total) : '0'} — there\'s clear room to shift the balance.`,
+      metric: `£${formatNumberWithCommas(Math.round(totalEatingOut))}`,
     });
   }
   
@@ -561,7 +573,7 @@ export function getAIInsights(): AIInsight[] {
     insights.push({
       type: 'tip',
       title: 'Consider a TfL travelcard',
-      description: `You\'ve spent £${transport.total.toLocaleString()} on transport (${transport.count} journeys). A monthly Zone 1-3 travelcard costs ~£172/month and could save you money if you\'re commuting 5 days/week. Also review Uber trips — some could be replaced by public transport.`,
+      description: `You\'ve spent £${formatNumberWithCommas(transport.total)} on transport (${transport.count} journeys). A monthly Zone 1-3 travelcard costs ~£172/month and could save you money if you\'re commuting 5 days/week. Also review Uber trips — some could be replaced by public transport.`,
       metric: `${transport.count} trips`,
     });
   }
@@ -570,8 +582,8 @@ export function getAIInsights(): AIInsight[] {
   insights.push({
     type: 'tip',
     title: 'Build a 3-month emergency fund',
-    description: `Your average monthly spending is ~£${Math.round(stats.avgMonthlySpending).toLocaleString()}. An ideal emergency fund would be £${Math.round(stats.avgMonthlySpending * 3).toLocaleString()}. Consider a high-yield savings account (currently ~5% AER) to make your savings work harder.`,
-    metric: `£${Math.round(stats.avgMonthlySpending * 3).toLocaleString()} target`,
+    description: `Your average monthly spending is ~£${formatNumberWithCommas(Math.round(stats.avgMonthlySpending))}. An ideal emergency fund would be £${formatNumberWithCommas(Math.round(stats.avgMonthlySpending * 3))}. Consider a high-yield savings account (currently ~5% AER) to make your savings work harder.`,
+    metric: `£${formatNumberWithCommas(Math.round(stats.avgMonthlySpending * 3))} target`,
   });
   
   // Maximise ISA allowance
@@ -598,7 +610,7 @@ export function getAIInsights(): AIInsight[] {
     insights.push({
       type: 'info',
       title: 'Spending varies significantly month to month',
-      description: `In the last 6 months, monthly spending ranged from £${Math.round(minSpend).toLocaleString()} to £${Math.round(maxSpend).toLocaleString()}. Creating a monthly budget with fixed allocations for each category would help smooth out these peaks.`,
+      description: `In the last 6 months, monthly spending ranged from £${formatNumberWithCommas(Math.round(minSpend))} to £${formatNumberWithCommas(Math.round(maxSpend))}. Creating a monthly budget with fixed allocations for each category would help smooth out these peaks.`,
       metric: `${Math.round(maxSpend / minSpend)}x variance`,
     });
   }
