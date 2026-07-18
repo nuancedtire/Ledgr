@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { getClientData } from '../data/transactions';
+import { getClientData, formatNumberWithCommas } from '../data/transactions';
 
 const data = getClientData();
 const jsonData = JSON.stringify(data);
@@ -12,7 +12,7 @@ const jsonData = JSON.stringify(data);
     <header class="header">
       <div class="header-left">
         <h1>Ledgr</h1>
-        <p class="subtitle">{data.stats.dateRange.from} — {data.stats.dateRange.to} · {data.stats.totalTransactions.toLocaleString()} transactions</p>
+        <p class="subtitle">{data.stats.dateRange.from} — {data.stats.dateRange.to} · {formatNumberWithCommas(data.stats.totalTransactions)} transactions</p>
       </div>
       <div class="header-right">
         <button class="btn btn-upload" id="upload-btn" aria-label="Upload CSV">
