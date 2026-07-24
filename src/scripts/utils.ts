@@ -63,3 +63,16 @@ export function defaultColor(cat: string): string {
   for (let i = 0; i < cat.length; i++) h = cat.charCodeAt(i) + ((h << 5) - h);
   return `hsl(${Math.abs(h) % 360},55%,55%)`;
 }
+
+/**
+ * Creates a debounced version of a function that delays invoking the function
+ * until after `delay` milliseconds have elapsed since the last time it was invoked.
+ * This is crucial for performance when handling typing inputs to avoid redundant layout calculations.
+ */
+export function debounce<T extends (...args: any[]) => void>(fn: T, delay: number): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}

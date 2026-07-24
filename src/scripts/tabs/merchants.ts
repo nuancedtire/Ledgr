@@ -1,5 +1,5 @@
 import type { ClientData, ClientTransaction } from '../types';
-import { el, fmtGBP, fmtGBP2, fmtDate } from '../utils';
+import { el, fmtGBP, fmtGBP2, fmtDate, debounce } from '../utils';
 import { createChart, destroyChart, CHART_GRID, CHART_TICK } from '../charts';
 
 let drilldown: string | null = null;
@@ -19,7 +19,7 @@ export function renderMerchants(data: ClientData): void {
   // Search
   const bar = el('div', { className: 'tx-filters' });
   const input = el('input', { type: 'text', placeholder: 'Search merchants\u2026', className: 'filter-input', value: search }) as HTMLInputElement;
-  input.addEventListener('input', () => { search = input.value; renderList(); });
+  input.addEventListener('input', debounce(() => { search = input.value; renderList(); }, 200));
   bar.appendChild(input);
   panel.appendChild(bar);
 

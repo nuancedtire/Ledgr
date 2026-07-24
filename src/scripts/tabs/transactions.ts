@@ -1,5 +1,5 @@
 import type { ClientData, ClientTransaction } from '../types';
-import { el, fmtGBP2, fmtDate, paginate, escapeCSV } from '../utils';
+import { el, fmtGBP2, fmtDate, paginate, escapeCSV, debounce } from '../utils';
 
 const PER_PAGE = 50;
 
@@ -192,7 +192,11 @@ export function renderTransactions(data: ClientData): void {
   const bar = el('div', { className: 'tx-filters' });
 
   const searchInput = el('input', { type: 'text', placeholder: 'Search description\u2026', className: 'filter-input', value: state.search }) as HTMLInputElement;
-  searchInput.addEventListener('input', () => { state.search = searchInput.value; state.page = 1; renderTable(); });
+  searchInput.addEventListener('input', debounce(() => {
+    state.search = searchInput.value;
+    state.page = 1;
+    renderTable();
+  }, 200));
   bar.appendChild(searchInput);
 
   const catSel = el('select', { className: 'filter-select' }) as HTMLSelectElement;
@@ -226,11 +230,19 @@ export function renderTransactions(data: ClientData): void {
   bar.appendChild(mto);
 
   const amtMin = el('input', { type: 'number', placeholder: 'Min \u00a3', className: 'filter-input filter-amt', value: state.amtMin }) as HTMLInputElement;
-  amtMin.addEventListener('input', () => { state.amtMin = amtMin.value; state.page = 1; renderTable(); });
+  amtMin.addEventListener('input', debounce(() => {
+    state.amtMin = amtMin.value;
+    state.page = 1;
+    renderTable();
+  }, 200));
   bar.appendChild(amtMin);
 
   const amtMax = el('input', { type: 'number', placeholder: 'Max \u00a3', className: 'filter-input filter-amt', value: state.amtMax }) as HTMLInputElement;
-  amtMax.addEventListener('input', () => { state.amtMax = amtMax.value; state.page = 1; renderTable(); });
+  amtMax.addEventListener('input', debounce(() => {
+    state.amtMax = amtMax.value;
+    state.page = 1;
+    renderTable();
+  }, 200));
   bar.appendChild(amtMax);
 
   bar.appendChild(el('button', { className: 'btn btn-export', onClick: exportCSV }, '\u21e9 CSV'));
