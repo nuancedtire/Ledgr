@@ -9,16 +9,24 @@
     "preview": "astro preview",
     "ship": "astro build && wrangler deploy",
     "cf:dev": "pnpm build && wrangler dev",
-    "cf:types": "wrangler types"
+    "cf:types": "wrangler types",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "wrangler d1 execute ledgr-db --file=./drizzle/0000_init.sql",
+    "db:migrate:local": "wrangler d1 execute ledgr-db --local --file=./drizzle/0000_init.sql"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.29.1",
   "dependencies": {
+    "@astrojs/cloudflare": "^12.6.12",
+    "@astrojs/react": "^4.4.2",
     "astro": "^5.17.2",
     "chart.js": "^4.5.1",
-    "papaparse": "^5.5.3"
+    "drizzle-orm": "^0.45.1",
+    "papaparse": "^5.5.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -29,6 +37,9 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260214.0",
     "@types/node": "^25.2.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.9",
     "wrangler": "^4.65.0"
   }
 }

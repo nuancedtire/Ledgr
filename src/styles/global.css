@@ -725,3 +725,116 @@ button { font-family: inherit; cursor: pointer; }
 .insight-card .insight-desc { font-size: 0.8rem; line-height: 1.55; color: var(--text-secondary); }
 .insights-grid .insight-card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 1.25rem; transition: border-color 0.2s; }
 .insights-grid .insight-card:hover { border-color: var(--border); }
+
+/* ── Toast Notifications ── */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 400px;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  animation: toast-in 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.toast-success { border-left: 3px solid var(--accent-emerald); }
+.toast-error { border-left: 3px solid var(--accent-rose); }
+.toast-warning { border-left: 3px solid var(--accent-amber); }
+.toast-info { border-left: 3px solid var(--accent-sky); }
+.toast-icon { font-size: 1rem; flex-shrink: 0; }
+.toast-message { font-size: 0.85rem; color: var(--text-primary); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(1rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Upload Component Styles ── */
+.upload-result {
+  text-align: center;
+  padding: 2rem;
+}
+.upload-result-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+.upload-result h4 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+.upload-stats {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+.upload-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.upload-stat-value {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--accent-emerald);
+}
+.upload-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+.upload-error-msg {
+  color: var(--accent-rose);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+.upload-progress-container {
+  text-align: center;
+  padding: 2rem;
+}
+.upload-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent-emerald);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 1rem;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.upload-progress-container p {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+.upload-progress-sub {
+  color: var(--text-muted) !important;
+  font-size: 0.8rem !important;
+  margin-top: 0.25rem;
+}
+.btn-primary {
+  background: var(--accent-emerald);
+  color: var(--bg-primary);
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn-primary:hover { opacity: 0.9; }

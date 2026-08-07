@@ -1,29 +1,33 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ledgr",
-  "main": "src/worker/index.ts",
   "compatibility_date": "2025-06-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
   },
-  "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS",
-    "run_worker_first": ["/upload", "/status/*"]
-  },
-  "workflows": [
+  // D1 Database
+  "d1_databases": [
     {
-      "name": "ledgr-csv-ingest",
-      "binding": "CSV_WORKFLOW",
-      "class_name": "CSVIngestWorkflow"
+      "binding": "DB",
+      "database_name": "ledgr-db",
+      "database_id": "YOUR_D1_DATABASE_ID"
+    }
+  ],
+  // KV Namespace for sessions
+  "kv_namespaces": [
+    {
+      "binding": "SESSIONS",
+      "id": "YOUR_KV_NAMESPACE_ID"
     }
   ],
   "vars": {
-    "GITHUB_REPO": "nuancedtire/Ledgr",
-    "GITHUB_BRANCH": "main",
-    "CSV_PATH": "src/data/statement.csv"
+    "ENTRA_CLIENT_ID": "",
+    "ENTRA_TENANT_ID": "",
+    "ENTRA_REDIRECT_URI": "http://localhost:4321/api/auth/callback",
+    "APP_URL": "http://localhost:4321"
   }
-  // Set GITHUB_TOKEN as a secret:
-  // npx wrangler secret put GITHUB_TOKEN
+  // Set secrets via wrangler:
+  // npx wrangler secret put ENTRA_CLIENT_SECRET
+  // npx wrangler secret put ENCRYPTION_KEY
 }
