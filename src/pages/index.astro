@@ -1,9 +1,36 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { getClientData } from '../data/transactions';
+import CsvUpload from '../components/CsvUpload';
+import DataManager from '../components/DataManager';
+import { getDb } from '../db';
+import { users } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { getClientData, getUserUploads } from '../lib/data-service';
 
-const data = getClientData();
-const jsonData = JSON.stringify(data);
+const session = Astro.locals.session!;
+const env = Astro.locals.runtime.env;
+const db = getDb(env.DB);
+
+// Get user for encryption salt
+const user = await db.select().from(users).where(eq(users.id, session.userId)).get();
+
+let data = null;
+let uploadsData: any[] = [];
+let hasData = false;
+
+if (user) {
+  data = await getClientData(db, session.userId, env.ENCRYPTION_KEY_SECRET, user.encryptionSalt);
+  uploadsData = await getUserUploads(db, session.userId);
+  hasData = data.transactions.length > 0;
+}
+
+const jsonData = data ? JSON.stringify(data) : 'null';
+const uploadsJson = JSON.stringify(uploadsData.map(u => ({
+  id: u.id,
+  filename: u.filename,
+  rowCount: u.rowCount,
+  uploadedAt: u.uploadedAt.toISOString(),
+})));
 ---
 
 <Layout title="Ledgr — Financial Dashboard">
@@ -12,15 +39,15 @@ const jsonData = JSON.stringify(data);
     <header class="header">
       <div class="header-left">
         <h1>Ledgr</h1>
-        <p class="subtitle">{data.stats.dateRange.from} — {data.stats.dateRange.to} · {data.stats.totalTransactions.toLocaleString()} transactions</p>
+        {hasData && data ? (
+          <p class="subtitle">{data.stats.dateRange.from} — {data.stats.dateRange.to} · {data.stats.totalTransactions.toLocaleString()} transactions</p>
+        ) : (
+          <p class="subtitle">Upload a statement to get started</p>
+        )}
       </div>
       <div class="header-right">
-        <button class="btn btn-upload" id="upload-btn" aria-label="Upload CSV">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 10V2m0 0L5 5m3-3 3 3M2 10v2a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg>
-          Upload CSV
-        </button>
-        <span class="badge badge-emerald">● Revolut</span>
-        <span class="badge badge-sky">GBP</span>
+        <span class="user-badge">{session.displayName}</span>
+        <a href="/api/auth/logout" class="btn btn-ghost">Sign Out</a>
       </div>
     </header>
 
@@ -31,52 +58,126 @@ const jsonData = JSON.stringify(data);
       <button class="tab" data-target="tab-categories" role="tab">Categories</button>
       <button class="tab" data-target="tab-merchants" role="tab">Merchants</button>
       <button class="tab" data-target="tab-insights" role="tab">Insights</button>
+      <button class="tab" data-target="tab-upload" role="tab">Upload</button>
+      <button class="tab" data-target="tab-manage" role="tab">Manage Data</button>
     </nav>
 
     <!-- Tab Panels -->
-    <div id="tab-overview" class="tab-panel active" role="tabpanel"></div>
+    <div id="tab-overview" class="tab-panel active" role="tabpanel">
+      {!hasData && (
+        <div class="empty-state">
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
+            <path d="M32 44V16m0 0l-10 10m10-10 10 10"/>
+            <path d="M12 36v12a4 4 0 004 4h32a4 4 0 004-4V36"/>
+          </svg>
+          <h3>Welcome to Ledgr</h3>
+          <p>Upload your Revolut CSV statement to see your financial dashboard with encrypted data storage.</p>
+          <button class="btn btn-primary" onclick="document.querySelector('[data-target=tab-upload]').click()">Upload Statement</button>
+        </div>
+      )}
+    </div>
     <div id="tab-transactions" class="tab-panel" role="tabpanel"></div>
     <div id="tab-categories" class="tab-panel" role="tabpanel"></div>
     <div id="tab-merchants" class="tab-panel" role="tabpanel"></div>
     <div id="tab-insights" class="tab-panel" role="tabpanel"></div>
 
+    <!-- Upload Tab (React Island) -->
+    <div id="tab-upload" class="tab-panel" role="tabpanel">
+      <div class="panel-header">
+        <h2>Upload Statement</h2>
+        <p class="panel-desc">Upload a Revolut CSV export. Your data will be encrypted with AES-256-GCM before storage.</p>
+      </div>
+      <CsvUpload client:load />
+    </div>
+
+    <!-- Manage Data Tab (React Island) -->
+    <div id="tab-manage" class="tab-panel" role="tabpanel">
+      <div class="panel-header">
+        <h2>Manage Data</h2>
+        <p class="panel-desc">Search, filter, and delete your transactions and uploads.</p>
+      </div>
+      <DataManager
+        client:visible
+        transactions={data?.transactions ?? []}
+        uploads={JSON.parse(uploadsJson)}
+      />
+    </div>
+
     <!-- Footer -->
     <footer class="footer">
-      <p>Dashboard generated from Revolut account statement · Data processed at build time · Not financial advice</p>
+      <p>Data encrypted at rest with AES-256-GCM · Stored in Cloudflare D1 · Not financial advice</p>
     </footer>
   </div>
 
-  <!-- Upload Modal -->
-  <div class="modal-overlay" id="upload-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <h3>Upload Statement</h3>
-        <button class="modal-close" id="upload-close">&times;</button>
-      </div>
-      <div class="modal-body" id="upload-body">
-        <!-- Drop zone (initial state) -->
-        <div id="upload-dropzone" class="dropzone">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
-            <path d="M24 32V8m0 0l-8 8m8-8 8 8"/>
-            <path d="M8 28v8a4 4 0 004 4h24a4 4 0 004-4v-8"/>
-          </svg>
-          <p class="dropzone-text">Drop your Revolut CSV here</p>
-          <p class="dropzone-sub">or <label class="dropzone-browse">browse<input type="file" accept=".csv" id="upload-file" hidden /></label></p>
-        </div>
-        <!-- Progress (shown after upload starts) -->
-        <div id="upload-progress" class="upload-progress" style="display:none">
-          <div class="progress-steps" id="progress-steps"></div>
-          <div class="progress-status" id="progress-status"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Data -->
-  <script type="application/json" id="app-data" set:html={jsonData}></script>
+  <!-- Data for vanilla JS tabs -->
+  {hasData && <script type="application/json" id="app-data" set:html={jsonData}></script>}
 
   <!-- App (bundled by Vite) -->
   <script>
     import '../scripts/app.ts';
   </script>
 </Layout>
+
+<style>
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+    gap: 1rem;
+  }
+
+  .empty-state h3 {
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+    color: var(--text-primary);
+  }
+
+  .empty-state p {
+    color: var(--text-secondary);
+    max-width: 400px;
+    font-size: 0.9rem;
+  }
+
+  .user-badge {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .btn-ghost {
+    color: var(--text-secondary);
+    background: none;
+    border: 1px solid var(--border);
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .btn-ghost:hover {
+    color: var(--accent-rose);
+    border-color: var(--accent-rose);
+  }
+
+  .panel-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .panel-header h2 {
+    font-family: var(--font-serif);
+    font-size: 1.3rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .panel-desc {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+  }
+</style>
